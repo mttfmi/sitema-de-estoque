@@ -3,10 +3,21 @@ import urllib.request
 import urllib.error
 import threading
 import os
+import sys
+
+# Força a saída do terminal para UTF-8 — no Windows, o PowerShell/cmd usa por
+# padrão a codificação cp1252, que não sabe representar emojis (⏳📱❌) e
+# fazia o print() quebrar silenciosamente antes de mostrar qualquer coisa.
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()  # garante que o .env carregue mesmo se este arquivo rodar sozinho
+    load_dotenv(override=True)  # o .env sempre tem prioridade sobre variáveis de sessão já existentes
 except ImportError:
     pass
 
@@ -20,7 +31,7 @@ def _enviar_http_background(mensagem):
     try:
         texto_encoded = urllib.parse.quote(mensagem)
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id={TELEGRAM_CHAT_ID}&text={texto_encoded}"
-        
+
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:

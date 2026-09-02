@@ -1,4 +1,18 @@
+# Ambiente virtual
 venv/
+env/
+
+# Variáveis de ambiente e segredos — NUNCA subir isso pro GitHub
 .env
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# VS Code
+.vscode/
+
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db

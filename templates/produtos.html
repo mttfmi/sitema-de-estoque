@@ -3,14 +3,17 @@
 
 {% block content %}
 <div class="page">
-  <div style="display:flex; align-items:flex-end; justify-content:space-between;">
+  <div class="page__header">
     <div>
       <div class="page__title">Produtos</div>
       <div class="page__subtitle">{{ produtos|length }} produto(s) cadastrado(s)</div>
     </div>
-    <a href="{{ url_for('produto_novo') }}">
-      <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Novo Produto</button>
-    </a>
+    <div style="display:flex; gap:8px;">
+      <button type="button" id="btn-escanear-rapido" class="btn-secondary" style="width:auto; padding: 10px 18px;">📷 Escanear e Cadastrar</button>
+      <a href="{{ url_for('produto_novo') }}">
+        <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Novo Produto</button>
+      </a>
+    </div>
   </div>
 
   <div class="panel">
@@ -43,7 +46,6 @@
               <form method="POST" action="{{ url_for('produto_deletar', produto_id=p[0]) }}"
                     style="display:inline;"
                     onsubmit="return confirm('Excluir o produto \'{{ p[2] }}\'? Essa ação não pode ser desfeita.');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
               </form>
             </td>
@@ -56,5 +58,86 @@
       {% endif %}
     </div>
   </div>
+
+  <!-- Painel do scanner rápido: aponta a câmera, lê o código de barras e já leva
+       pra tela de cadastro com o código preenchido automaticamente -->
+  <div id="scanner-rapido-wrap" class="panel" style="display:none;">
+    <div class="panel__header">📷 Escanear código de barras</div>
+    <div class="panel__body" style="padding: 20px;">
+      <div id="scanner-rapido-reader" style="width:100%; max-width:480px; margin:0 auto; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);"></div>
+      <div id="scanner-rapido-status" class="page__subtitle" style="margin: 12px 0 0; text-align:center;">
+        Aponte a câmera para o código de barras do produto...
+      </div>
+      <button type="button" id="btn-cancelar-scanner-rapido" class="btn-secondary" style="width:100%; margin-top:12px;">
+        Cancelar
+      </button>
+    </div>
+  </div>
 </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const btnEscanearRapido = document.getElementById('btn-escanear-rapido');
+  const btnCancelarRapido = document.getElementById('btn-cancelar-scanner-rapido');
+  const scannerRapidoWrap = document.getElementById('scanner-rapido-wrap');
+  const scannerRapidoStatus = document.getElementById('scanner-rapido-status');
+
+  let html5QrCodeRapido = null;
+
+  function pararScannerRapido() {
+    if (html5QrCodeRapido) {
+      html5QrCodeRapido.stop().then(() => {
+        html5QrCodeRapido.clear();
+        html5QrCodeRapido = null;
+      }).catch(() => {
+        html5QrCodeRapido = null;
+      });
+    }
+    scannerRapidoWrap.style.display = 'none';
+  }
+
+  btnEscanearRapido.addEventListener('click', async () => {
+    scannerRapidoWrap.style.display = 'block';
+    scannerRapidoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scannerRapidoStatus.textContent = 'Aponte a câmera para o código de barras do produto...';
+
+    html5QrCodeRapido = new Html5Qrcode("scanner-rapido-reader");
+
+    const formatosSuportados = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE,
+    ];
+
+    try {
+      await html5QrCodeRapido.start(
+        { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        {
+          fps: 10,
+          qrbox: { width: 300, height: 160 },
+          formatsToSupport: formatosSuportados,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+        },
+        (textoDecodificado) => {
+          scannerRapidoStatus.textContent = '✅ Código lido: ' + textoDecodificado + ' — abrindo cadastro...';
+          pararScannerRapido();
+          // Leva direto pro formulário de novo produto, já com o código preenchido
+          window.location.href = "{{ url_for('produto_novo') }}?codigo=" + encodeURIComponent(textoDecodificado);
+        },
+        () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
+      );
+    } catch (err) {
+      scannerRapidoStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+      console.error(err);
+    }
+  });
+
+  btnCancelarRapido.addEventListener('click', pararScannerRapido);
+</script>
 {% endblock %}
