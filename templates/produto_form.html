@@ -118,7 +118,7 @@
 
     try {
       await html5QrCode.start(
-        { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, // usa a câmera traseira em celulares, se disponível
+        { facingMode: "environment" }, // usa a câmera traseira em celulares, se disponível
         {
           fps: 10,
           qrbox: { width: 300, height: 160 },
