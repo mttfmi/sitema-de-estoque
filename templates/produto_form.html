@@ -11,6 +11,7 @@
   <div class="panel">
     <div class="panel__body" style="padding: 24px;">
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="field">
           <label for="codigo">Código de barras</label>
