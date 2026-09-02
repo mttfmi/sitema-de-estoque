@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}PDV — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__title">Frente de Caixa (PDV)</div>
+  <div class="page__subtitle">Selecione produtos e finalize a venda</div>
+
+  <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start;">
+
+    <!-- Coluna esquerda: seleção de produto -->
+    <div class="panel">
+      <div class="panel__header">Adicionar produto</div>
+      <div class="panel__body" style="padding: 20px;">
+        <form method="POST" action="{{ url_for('pdv_adicionar') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="field">
+            <label for="produto_id">Produto</label>
+            <select id="produto_id" name="produto_id" required
+                    style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+              <option value="" disabled selected>Selecione um produto...</option>
+              {% for p in produtos %}
+              <option value="{{ p[0] }}">{{ p[2] }} — R$ {{ "%.2f"|format(p[4] or 0.0) }} ({{ p[5] or 0 }} un disponíveis)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="quantidade">Quantidade</label>
+            <input type="number" id="quantidade" name="quantidade" min="1" value="1" required>
+          </div>
+          <button type="submit" class="btn-primary">+ Adicionar ao carrinho</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Coluna direita: carrinho -->
+    <div class="panel">
+      <div class="panel__header">🛒 Carrinho</div>
+      <div class="panel__body">
+        {% if carrinho %}
+        <table>
+          <thead><tr><th>Produto</th><th>Qtd</th><th>Subtotal</th><th></th></tr></thead>
+          <tbody>
+            {% for item in carrinho %}
+            <tr>
+              <td>{{ item.nome }}</td>
+              <td class="mono">{{ item.qtd }}</td>
+              <td class="mono">R$ {{ "%.2f"|format(item.subtotal) }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('pdv_remover', indice=loop.index0) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn-icon" title="Remover">✕</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="padding: 16px 20px; border-top: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:600;">Total</span>
+          <span class="mono" style="font-size:20px; font-weight:600;">R$ {{ "%.2f"|format(total) }}</span>
+        </div>
+        <form method="POST" action="{{ url_for('pdv_finalizar') }}" style="padding: 0 20px 20px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="field">
+            <label for="forma_pagamento">Forma de pagamento</label>
+            <select id="forma_pagamento" name="forma_pagamento"
+                    style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="PIX">PIX</option>
+              <option value="Cartão de Débito">Cartão de Débito</option>
+              <option value="Cartão de Crédito">Cartão de Crédito</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary" style="background: var(--verde);">
+            ✅ Finalizar Venda
+          </button>
+        </form>
+        {% else %}
+        <div class="panel__empty">Carrinho vazio. Adicione produtos ao lado.</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

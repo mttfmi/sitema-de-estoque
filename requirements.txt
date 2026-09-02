@@ -1,0 +1,12 @@
+flask
+flask-login
+flask-wtf
+psycopg2-binary
+python-dotenv
+gunicorn
+pandas
+openpyxl
+reportlab
+sentence-transformers
+scikit-learn
+numpy

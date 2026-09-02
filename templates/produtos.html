@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Produtos — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between;">
+    <div>
+      <div class="page__title">Produtos</div>
+      <div class="page__subtitle">{{ produtos|length }} produto(s) cadastrado(s)</div>
+    </div>
+    <a href="{{ url_for('produto_novo') }}">
+      <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Novo Produto</button>
+    </a>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if produtos %}
+      <table>
+        <thead>
+          <tr><th>Produto</th><th>Código</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in produtos %}
+          {% set qtd = p[5] or 0 %}
+          {% set minimo = p[6] or 5 %}
+          <tr>
+            <td>{{ p[2] }}</td>
+            <td class="mono">{{ p[1] or 'S/C' }}</td>
+            <td class="mono">R$ {{ "%.2f"|format(p[4] or 0.0) }}</td>
+            <td class="mono">{{ qtd }} un</td>
+            <td>
+              {% if qtd <= minimo %}
+                <span class="tag tag--critico">Crítico</span>
+              {% else %}
+                <span class="tag tag--ok">OK</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right; white-space:nowrap;">
+              <a href="{{ url_for('produto_editar', produto_id=p[0]) }}">
+                <button type="button" class="btn-icon" title="Editar">✏️</button>
+              </a>
+              <form method="POST" action="{{ url_for('produto_deletar', produto_id=p[0]) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Excluir o produto \'{{ p[2] }}\'? Essa ação não pode ser desfeita.');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum produto cadastrado ainda. Clique em "+ Novo Produto" para começar.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

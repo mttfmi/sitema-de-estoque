@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if modo == 'editar' else 'Novo' }} Produto — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 560px;">
+  <div class="page__title">{{ 'Editar Produto' if modo == 'editar' else 'Novo Produto' }}</div>
+  <div class="page__subtitle">
+    {{ 'Atualize as informações do produto' if modo == 'editar' else 'Preencha os dados ou escaneie o código de barras' }}
+  </div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 24px;">
+      <form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field">
+          <label for="codigo">Código de barras</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="codigo" name="codigo" placeholder="Ex: 7891000100103"
+                   value="{{ produto[1] if produto else '' }}" style="flex: 1;">
+            <button type="button" id="btn-escanear" class="btn-secondary">📷 Escanear</button>
+          </div>
+        </div>
+
+        <!-- Área da câmera: só aparece quando o usuário clica em "Escanear" -->
+        <div id="scanner-wrap" style="display:none; margin: 4px 0 18px;">
+          <div id="scanner-reader" style="width:100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);"></div>
+          <div id="scanner-status" class="page__subtitle" style="margin: 8px 0 0; text-align:center;">
+            Aponte a câmera para o código de barras...
+          </div>
+          <button type="button" id="btn-cancelar-scanner" class="btn-secondary" style="width:100%; margin-top:8px;">
+            Cancelar
+          </button>
+        </div>
+
+        <div class="field">
+          <label for="nome">Nome do produto *</label>
+          <input type="text" id="nome" name="nome" required autofocus
+                 value="{{ produto[2] if produto else '' }}">
+        </div>
+
+        <div class="field">
+          <label for="descricao">Descrição</label>
+          <input type="text" id="descricao" name="descricao" placeholder="Ex: mouse gamer RGB 6 botões"
+                 value="{{ produto[3] if produto else '' }}">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="field">
+            <label for="preco">Preço (R$)</label>
+            <input type="number" id="preco" name="preco" step="0.01" min="0"
+                   value="{{ produto[4] if produto else 0 }}">
+          </div>
+          <div class="field">
+            <label for="quantidade">Quantidade em estoque</label>
+            <input type="number" id="quantidade" name="quantidade" min="0"
+                   value="{{ produto[5] if produto else 0 }}">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="estoque_minimo">Estoque mínimo (alerta de reposição)</label>
+          <input type="number" id="estoque_minimo" name="estoque_minimo" min="0"
+                 value="{{ produto[6] if produto else 5 }}">
+        </div>
+
+        <div style="display:flex; gap: 10px; margin-top: 10px;">
+          <button type="submit" class="btn-primary">
+            {{ '💾 Salvar Alterações' if modo == 'editar' else '✅ Cadastrar Produto' }}
+          </button>
+          <a href="{{ url_for('produtos') }}" style="flex-shrink:0;">
+            <button type="button" class="btn-secondary">Cancelar</button>
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Biblioteca de leitura de código de barras/QR direto no navegador (usa a câmera do dispositivo do usuário) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const btnEscanear = document.getElementById('btn-escanear');
+  const btnCancelar = document.getElementById('btn-cancelar-scanner');
+  const scannerWrap = document.getElementById('scanner-wrap');
+  const scannerStatus = document.getElementById('scanner-status');
+  const inputCodigo = document.getElementById('codigo');
+
+  let html5QrCode = null;
+
+  function pararScanner() {
+    if (html5QrCode) {
+      html5QrCode.stop().then(() => {
+        html5QrCode.clear();
+        html5QrCode = null;
+      }).catch(() => {
+        html5QrCode = null;
+      });
+    }
+    scannerWrap.style.display = 'none';
+  }
+
+  btnEscanear.addEventListener('click', async () => {
+    scannerWrap.style.display = 'block';
+    scannerStatus.textContent = 'Aponte a câmera para o código de barras...';
+
+    html5QrCode = new Html5Qrcode("scanner-reader");
+
+    // Formatos de código de barras mais comuns em produtos de varejo
+    const formatosSuportados = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE,
+    ];
+
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" }, // usa a câmera traseira em celulares, se disponível
+        {
+          fps: 10,
+          qrbox: { width: 260, height: 140 },
+          formatsToSupport: formatosSuportados,
+        },
+        (textoDecodificado) => {
+          inputCodigo.value = textoDecodificado;
+          scannerStatus.textContent = '✅ Código lido: ' + textoDecodificado;
+          setTimeout(pararScanner, 600);
+        },
+        () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
+      );
+    } catch (err) {
+      scannerStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+      console.error(err);
+    }
+  });
+
+  btnCancelar.addEventListener('click', pararScanner);
+</script>
+{% endblock %}

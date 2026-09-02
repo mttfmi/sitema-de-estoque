@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Sistema de Estoque</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-card__brand">|||‖||| ESTOQUE &amp; PDV</div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for categoria, msg in messages %}
+            <div class="flash flash--{{ categoria }}">{{ msg }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% if primeiro_acesso %}
+        <h1>Criar Administrador</h1>
+        <form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="field">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome" required autofocus>
+          </div>
+          <div class="field">
+            <label for="usuario">Usuário (login)</label>
+            <input type="text" id="usuario" name="usuario" required>
+          </div>
+          <div class="field">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha" required>
+          </div>
+          <div class="field">
+            <label for="confirmar_senha">Confirmar senha</label>
+            <input type="password" id="confirmar_senha" name="confirmar_senha" required>
+          </div>
+          <button type="submit" class="btn-primary">Criar Administrador</button>
+        </form>
+      {% else %}
+        <h1>Entrar</h1>
+        <form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="field">
+            <label for="usuario">Usuário</label>
+            <input type="text" id="usuario" name="usuario" required autofocus>
+          </div>
+          <div class="field">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha" required>
+          </div>
+          <button type="submit" class="btn-primary">Entrar</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Chat IA — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 720px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between;">
+    <div>
+      <div class="page__title">💬 Chat IA</div>
+      <div class="page__subtitle">Pergunte sobre seu estoque em linguagem natural</div>
+    </div>
+    <form method="POST" action="{{ url_for('chat_limpar') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-secondary" style="width:auto; padding: 8px 14px; font-size:13px;">Limpar conversa</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 20px; max-height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap: 12px;" id="chat-area">
+      {% if not historico %}
+        <div class="panel__empty">
+          Nenhuma mensagem ainda. Tente perguntar "quais produtos estão acabando" ou "ajuda".
+        </div>
+      {% endif %}
+      {% for msg in historico %}
+        {% if msg.autor == 'usuario' %}
+        <div style="align-self:flex-end; max-width:80%; background: var(--azul); color:#fff; padding:10px 14px; border-radius: 10px 10px 2px 10px; font-size:14px;">
+          {{ msg.texto }}
+        </div>
+        {% else %}
+        <div style="align-self:flex-start; max-width:80%; background: var(--surface-alt); padding:10px 14px; border-radius: 10px 10px 10px 2px; font-size:14px; white-space:pre-wrap;">
+          {{ msg.texto }}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <form method="POST" style="display:flex; gap:8px; padding: 16px 20px; border-top:1px solid var(--border);">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="mensagem" placeholder="Digite sua pergunta..." required autofocus
+             style="flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+      <button type="submit" class="btn-primary" style="width:auto; padding: 10px 20px;">Enviar</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Rola o chat pra última mensagem automaticamente
+  const chatArea = document.getElementById('chat-area');
+  chatArea.scrollTop = chatArea.scrollHeight;
+</script>
+{% endblock %}

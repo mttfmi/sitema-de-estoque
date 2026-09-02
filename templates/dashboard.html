@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">Dashboard</div>
+      <div class="page__subtitle">Visão geral do estoque em tempo real</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('exportar_excel_rota') }}"><button type="button" class="btn-secondary" style="width:auto; padding:8px 14px; font-size:13px;">📊 Excel</button></a>
+      <a href="{{ url_for('exportar_pdf_rota') }}"><button type="button" class="btn-secondary" style="width:auto; padding:8px 14px; font-size:13px;">📄 PDF</button></a>
+      <a href="{{ url_for('exportar_ordem_compra_rota') }}"><button type="button" class="btn-secondary" style="width:auto; padding:8px 14px; font-size:13px;">🛒 Ordem de Compra</button></a>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-card__label">Produtos cadastrados</div>
+      <div class="metric-card__value">{{ total_produtos }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card__label">Valor total em estoque</div>
+      <div class="metric-card__value">R$ {{ "%.2f"|format(valor_total) }}</div>
+    </div>
+    <div class="metric-card critico">
+      <div class="metric-card__label">Produtos críticos</div>
+      <div class="metric-card__value">{{ criticos }}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">⚠️ Estoque baixo — precisam de reposição</div>
+    <div class="panel__body">
+      {% if baixos %}
+      <table>
+        <thead>
+          <tr><th>Produto</th><th>Código</th><th>Restam</th><th>Mínimo</th></tr>
+        </thead>
+        <tbody>
+          {% for p in baixos %}
+          <tr>
+            <td>{{ p[2] }}</td>
+            <td class="mono">{{ p[1] or 'S/C' }}</td>
+            <td><span class="tag tag--critico">{{ p[5] or 0 }} un</span></td>
+            <td class="mono">{{ p[6] or 5 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum produto com estoque crítico no momento.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">🔮 Previsão de ruptura — próximos a esgotar</div>
+    <div class="panel__body">
+      {% if proximos_ruptura %}
+      <table>
+        <thead>
+          <tr><th>Produto</th><th>Estoque atual</th><th>Média de vendas/dia</th><th>Esgota em</th></tr>
+        </thead>
+        <tbody>
+          {% for a in proximos_ruptura %}
+          <tr>
+            <td>{{ a.nome }}</td>
+            <td class="mono">{{ a.qtd_atual }} un</td>
+            <td class="mono">{{ a.media_diaria }}</td>
+            <td>
+              {% if a.dias_restantes <= 5 %}
+                <span class="tag tag--critico">~{{ a.dias_restantes }} dias</span>
+              {% else %}
+                <span class="tag tag--atencao">~{{ a.dias_restantes }} dias</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhuma ruptura prevista para os próximos dias.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

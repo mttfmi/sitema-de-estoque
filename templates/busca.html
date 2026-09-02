@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Busca IA — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__title">🔍 Busca IA</div>
+  <div class="page__subtitle">Busca semântica — encontra produtos mesmo sem digitar o nome exato</div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 20px;">
+      <form method="POST" style="display:flex; gap:8px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="termo" value="{{ termo }}" placeholder="Ex: algo pra limpar tela, mouse sem fio..." required autofocus
+               style="flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+        <button type="submit" class="btn-primary" style="width:auto; padding: 10px 20px;">Buscar</button>
+      </form>
+    </div>
+  </div>
+
+  {% if termo %}
+  <div class="panel">
+    <div class="panel__header">Resultados para "{{ termo }}"</div>
+    <div class="panel__body">
+      {% if resultados %}
+      <table>
+        <thead><tr><th>Produto</th><th>Código</th><th>Preço</th><th>Estoque</th><th>Relevância</th></tr></thead>
+        <tbody>
+          {% for r in resultados %}
+          {% set p = r.produto %}
+          <tr>
+            <td>{{ p[2] }}</td>
+            <td class="mono">{{ p[1] or 'S/C' }}</td>
+            <td class="mono">R$ {{ "%.2f"|format(p[4] or 0.0) }}</td>
+            <td class="mono">{{ p[5] or 0 }} un</td>
+            <td><span class="tag tag--ok">{{ r.confianca }}%</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum produto encontrado para essa busca.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

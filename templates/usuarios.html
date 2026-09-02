@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Usuários — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__title">👤 Usuários</div>
+  <div class="page__subtitle">Gerencie quem tem acesso ao sistema</div>
+
+  <div class="panel">
+    <div class="panel__header">➕ Criar novo usuário</div>
+    <div class="panel__body" style="padding: 20px;">
+      <form method="POST" action="{{ url_for('usuario_novo') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="field">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome" required>
+          </div>
+          <div class="field">
+            <label for="usuario">Usuário (login)</label>
+            <input type="text" id="usuario" name="usuario" required>
+          </div>
+          <div class="field">
+            <label for="senha">Senha provisória</label>
+            <input type="password" id="senha" name="senha" required>
+          </div>
+          <div class="field">
+            <label for="nivel_acesso">Nível de acesso</label>
+            <select id="nivel_acesso" name="nivel_acesso"
+                    style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+              <option value="operador">Operador</option>
+              <option value="administrador">Administrador</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width:auto; padding: 10px 20px; background: var(--verde);">
+          ✅ Criar Usuário
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">Usuários cadastrados</div>
+    <div class="panel__body">
+      {% if usuarios %}
+      <table>
+        <thead><tr><th>Login</th><th>Nome</th><th>Nível</th><th>Status</th><th>Criado em</th><th></th></tr></thead>
+        <tbody>
+          {% for u in usuarios %}
+          {% set u_id, login, nome, nivel, ativo, criado_em = u %}
+          <tr>
+            <td class="mono">{{ login }}</td>
+            <td>{{ nome or '-' }}</td>
+            <td>{{ nivel }}</td>
+            <td>
+              {% if ativo %}
+                <span class="tag tag--ok">Ativo</span>
+              {% else %}
+                <span class="tag tag--critico">Inativo</span>
+              {% endif %}
+            </td>
+            <td class="mono">{{ criado_em }}</td>
+            <td style="text-align:right; white-space:nowrap;">
+              {% if ativo %}
+              <form method="POST" action="{{ url_for('usuario_status', usuario_id=u_id) }}" style="display:inline;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ativo" value="0">
+                <button type="submit" class="btn-icon" title="Desativar">🚫</button>
+              </form>
+              {% else %}
+              <form method="POST" action="{{ url_for('usuario_status', usuario_id=u_id) }}" style="display:inline;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ativo" value="1">
+                <button type="submit" class="btn-icon" title="Ativar">✅</button>
+              </form>
+              {% endif %}
+              <form method="POST" action="{{ url_for('usuario_deletar', usuario_id=u_id) }}" style="display:inline;"
+                    onsubmit="return confirm('Excluir o usuário \'{{ nome or login }}\'?');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum usuário cadastrado ainda.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

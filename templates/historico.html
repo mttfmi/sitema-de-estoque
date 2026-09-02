@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Histórico — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__title">Histórico de Movimentações</div>
+  <div class="page__subtitle">Últimas {{ logs|length }} movimentações registradas</div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if logs %}
+      <table>
+        <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Produto</th><th>Quantidade</th></tr></thead>
+        <tbody>
+          {% for log in logs %}
+          {% set log_id, data_hora, produto_nome, tipo, quantidade = log %}
+          <tr>
+            <td class="mono">{{ data_hora }}</td>
+            <td>{{ tipo }}</td>
+            <td>{{ produto_nome }}</td>
+            <td class="mono">{{ quantidade }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhuma movimentação registrada ainda.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

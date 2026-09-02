@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Sistema de Estoque{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;650&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% if current_user.is_authenticated %}
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="barcode">|||‖|||</span>
+      <span>Sistema de Estoque</span>
+    </div>
+    <nav class="topbar__nav">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
+      <a href="{{ url_for('pdv') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pdv') }}">PDV</a>
+      <a href="{{ url_for('produtos') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('produto') }}">Produtos</a>
+      <a href="{{ url_for('historico') }}" class="{{ 'active' if request.endpoint == 'historico' }}">Histórico</a>
+      <a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('chat') }}">Chat IA</a>
+      <a href="{{ url_for('busca') }}" class="{{ 'active' if request.endpoint == 'busca' }}">Busca IA</a>
+      {% if current_user.nivel_acesso == 'administrador' %}
+      <a href="{{ url_for('usuarios') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('usuario') }}">Usuários</a>
+      {% endif %}
+    </nav>
+    <div class="topbar__user">
+      <span class="badge">{{ '👑 ADMIN' if current_user.nivel_acesso == 'administrador' else '👤 OPERADOR' }}</span>
+      <span>{{ current_user.nome_completo }}</span>
+      <a href="{{ url_for('logout') }}"><button class="btn-logout">Sair</button></a>
+    </div>
+  </header>
+  {% endif %}
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="page" style="padding-bottom: 0;">
+          {% for categoria, msg in messages %}
+            <div class="flash flash--{{ categoria }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
