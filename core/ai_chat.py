@@ -176,7 +176,7 @@ def responder_chat_ia(mensagem: str) -> str:
         # ------------------------------------------------------------------
         termos_vendas_hoje = [
             "vendas de hoje", "quanto vendi hoje", "faturamento de hoje",
-            "vendas do dia", "quanto faturei hoje"
+            "vendas do dia", "quanto faturei hoje", "vendas"
         ]
         if any(term in msg for term in termos_vendas_hoje):
             hoje = datetime.now().strftime("%d/%m/%Y")
