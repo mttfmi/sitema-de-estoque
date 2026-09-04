@@ -24,7 +24,7 @@ from core.auth import (
     listar_usuarios, alternar_status_usuario, deletar_usuario
 )
 from core.ai_chat import responder_chat_ia
-from core.ai_search import buscar_produtos_ia, iniciar_carregamento_modelo
+from core.ai_search import buscar_produtos_ia
 from core.exporter import exportar_excel, exportar_pdf, exportar_ordem_compra_pdf
 
 # FLASK_ENV=production nas variáveis de ambiente do host (Render/Railway) —
@@ -436,13 +436,13 @@ def usuario_deletar(usuario_id):
 # INICIALIZAÇÃO
 # ---------------------------------------------------------------------
 init_db()
-iniciar_carregamento_modelo()  # começa a carregar o modelo de busca por IA em
-                                # background assim que o app sobe (Gunicorn ou
-                                # execução local), para que perguntas fora do
-                                # vocabulário no chat não fiquem esperando o
-                                # download/carregamento do modelo travarem a
-                                # requisição — ele cai no fallback de texto
-                                # até o modelo terminar de carregar.
+# O modelo de busca por IA (sentence_transformers) NÃO é carregado aqui no
+# boot: no free tier do Render (512MB de RAM) isso estoura a memória e o
+# processo é reiniciado silenciosamente. Ele é carregado sob demanda, em
+# background, na primeira vez que alguém faz uma pergunta fora do
+# vocabulário fixo (ver core/ai_search.py) — a request nesse momento não
+# trava, ela recebe o fallback de texto imediatamente enquanto o modelo
+# carrega para as próximas buscas.
 
 if __name__ == "__main__":
     # debug=True só em desenvolvimento local. Em produção (FLASK_ENV=production
