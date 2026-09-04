@@ -14,7 +14,7 @@ _model_loading_started = False
 
 # Cache de embeddings dos produtos, para não recalcular tudo a cada pergunta
 _cache_embeddings = None       # numpy array
-_cache_produto_ids = None      # tupla de ids/códigos usados para detectar mudança no catálogo
+_cache_produto_ids = None      # tupla de ids usados para detectar mudança no catálogo
 
 
 def _carregar_modelo_em_background():
@@ -34,7 +34,7 @@ def _carregar_modelo_em_background():
 def iniciar_carregamento_modelo():
     """
     Dispara o carregamento do modelo em background assim que o app sobe
-    (chamar isso uma vez no startup, ex: no main.py / app factory).
+    (chamar isso uma vez no startup, em app.py, logo após init_db()).
     Não bloqueia — a thread roda em paralelo enquanto o app já aceita requests.
     """
     global _model_loading_started
@@ -69,7 +69,7 @@ def _atualizar_cache_embeddings(produtos, model):
     """Recalcula embeddings só se o catálogo mudou desde a última busca."""
     global _cache_embeddings, _cache_produto_ids
 
-    ids_atuais = tuple(p[0] for p in produtos)  # assume p[0] = id único do produto
+    ids_atuais = tuple(p[0] for p in produtos)  # p[0] = id único do produto
 
     if _cache_produto_ids == ids_atuais and _cache_embeddings is not None:
         return _cache_embeddings
