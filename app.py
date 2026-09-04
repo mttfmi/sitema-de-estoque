@@ -24,15 +24,15 @@ from core.auth import (
     listar_usuarios, alternar_status_usuario, deletar_usuario
 )
 from core.ai_chat import responder_chat_ia
-from core.ai_search import buscar_produtos_ia
+from core.ai_search import buscar_produtos_ia, iniciar_carregamento_modelo
 from core.exporter import exportar_excel, exportar_pdf, exportar_ordem_compra_pdf
-
 
 # FLASK_ENV=production nas variáveis de ambiente do host (Render/Railway) —
 # em desenvolvimento local, deixe sem definir (ou defina como "development")
 PRODUCAO = os.environ.get("FLASK_ENV") == "production"
 
 app = Flask(__name__)
+
 # Em produção, defina a variável de ambiente SECRET_KEY com um valor
 # aleatório e forte (ex: python -c "import secrets; print(secrets.token_hex(32))")
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-antes-de-hospedar")
@@ -94,7 +94,6 @@ def admin_required(f):
 # ---------------------------------------------------------------------
 # LOGIN / LOGOUT
 # ---------------------------------------------------------------------
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -123,12 +122,10 @@ def login():
 
         usuario = request.form.get("usuario", "").strip()
         senha = request.form.get("senha", "")
-
         ok, dados, msg = verificar_login(usuario, senha)
         if ok:
             login_user(Usuario(dados))
             return redirect(url_for("dashboard"))
-
         flash(msg, "erro")
 
     return render_template("login.html", primeiro_acesso=primeiro_acesso)
@@ -144,13 +141,11 @@ def logout():
 # ---------------------------------------------------------------------
 # DASHBOARD
 # ---------------------------------------------------------------------
-
 @app.route("/")
 @login_required
 def dashboard():
     produtos = get_todos_produtos()
     baixos = get_produtos_baixo_estoque()
-
     total_produtos = len(produtos)
     valor_total = sum((p[4] or 0.0) * (p[5] or 0) for p in produtos)
     criticos = len(baixos)
@@ -174,7 +169,6 @@ def dashboard():
 # ---------------------------------------------------------------------
 # PRODUTOS
 # ---------------------------------------------------------------------
-
 @app.route("/produtos")
 @login_required
 def produtos():
@@ -244,7 +238,6 @@ def produto_deletar(produto_id):
 # ---------------------------------------------------------------------
 # PDV (FRENTE DE CAIXA) — carrinho fica guardado na sessão do usuário
 # ---------------------------------------------------------------------
-
 @app.route("/pdv")
 @login_required
 def pdv():
@@ -311,7 +304,6 @@ def pdv_finalizar():
 # ---------------------------------------------------------------------
 # CHAT IA
 # ---------------------------------------------------------------------
-
 @app.route("/chat", methods=["GET", "POST"])
 @login_required
 def chat():
@@ -338,7 +330,6 @@ def chat_limpar():
 # ---------------------------------------------------------------------
 # BUSCA IA
 # ---------------------------------------------------------------------
-
 @app.route("/busca", methods=["GET", "POST"])
 @login_required
 def busca():
@@ -356,7 +347,6 @@ import tempfile
 # ---------------------------------------------------------------------
 # EXPORTAÇÃO (PDF / EXCEL)
 # ---------------------------------------------------------------------
-
 @app.route("/exportar/excel")
 @login_required
 def exportar_excel_rota():
@@ -384,7 +374,6 @@ def exportar_ordem_compra_rota():
 # ---------------------------------------------------------------------
 # HISTÓRICO
 # ---------------------------------------------------------------------
-
 @app.route("/historico")
 @login_required
 def historico():
@@ -395,7 +384,6 @@ def historico():
 # ---------------------------------------------------------------------
 # GERENCIAR USUÁRIOS (somente administrador)
 # ---------------------------------------------------------------------
-
 @app.route("/usuarios")
 @login_required
 @admin_required
@@ -423,12 +411,10 @@ def usuario_novo():
 @admin_required
 def usuario_status(usuario_id):
     ativo = request.form.get("ativo") == "1"
-
     alvo = next((u for u in listar_usuarios() if u[0] == usuario_id), None)
     if alvo and alvo[1] == current_user.usuario and not ativo:
         flash("Você não pode desativar o próprio usuário logado!", "erro")
         return redirect(url_for("usuarios"))
-
     alternar_status_usuario(usuario_id, ativo)
     return redirect(url_for("usuarios"))
 
@@ -441,7 +427,6 @@ def usuario_deletar(usuario_id):
     if alvo and alvo[1] == current_user.usuario:
         flash("Você não pode excluir o próprio usuário logado!", "erro")
         return redirect(url_for("usuarios"))
-
     deletar_usuario(usuario_id)
     flash("Usuário excluído.", "sucesso")
     return redirect(url_for("usuarios"))
@@ -450,8 +435,14 @@ def usuario_deletar(usuario_id):
 # ---------------------------------------------------------------------
 # INICIALIZAÇÃO
 # ---------------------------------------------------------------------
-
 init_db()
+iniciar_carregamento_modelo()  # começa a carregar o modelo de busca por IA em
+                                # background assim que o app sobe (Gunicorn ou
+                                # execução local), para que perguntas fora do
+                                # vocabulário no chat não fiquem esperando o
+                                # download/carregamento do modelo travarem a
+                                # requisição — ele cai no fallback de texto
+                                # até o modelo terminar de carregar.
 
 if __name__ == "__main__":
     # debug=True só em desenvolvimento local. Em produção (FLASK_ENV=production
