@@ -56,10 +56,12 @@ def get_model():
         ja_iniciou = _model_loading_started
 
     if not ja_iniciou:
-        # Ninguém chamou iniciar_carregamento_modelo() no startup ainda
-        # (ex: primeiro uso em dev) — dispara o carregamento em background
-        # agora, mas ainda assim retorna None nesta chamada para não travar
-        # a request atual.
+        # Primeira vez que alguém precisa do modelo nesta execução do app
+        # (lazy load intencional: no free tier do Render carregar isso no
+        # boot estoura os 512MB de RAM e derruba o processo). Dispara o
+        # carregamento em background agora, mas ainda assim retorna None
+        # nesta chamada para não travar a request atual — quem chamou cai
+        # no fallback de texto, e o modelo fica pronto para as próximas.
         iniciar_carregamento_modelo()
 
     return _model if modelo_pronto else None
