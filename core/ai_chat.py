@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from core.database import (
@@ -8,6 +9,8 @@ from core.database import (
     get_connection,
 )
 from core.ai_search import buscar_produtos_ia
+
+logger = logging.getLogger(__name__)
 
 
 def responder_chat_ia(mensagem: str) -> str:
@@ -265,8 +268,23 @@ def responder_chat_ia(mensagem: str) -> str:
                 res += f"   💰 R$ {preco:.2f} | 📊 Estoque: {qtd} un | Relevância: {r['confianca']}%\n\n"
             return res.strip()
 
-        return ("🤖 Assistente: Não entendi ou não encontrei nada relacionado. "
-                "Digite 'ajuda' para ver tudo que posso responder.")
+        # ------------------------------------------------------------------
+        # 14. NADA ENCONTRADO — fallback final "não trava" com sugestões
+        # ------------------------------------------------------------------
+        return (
+            "🤖 Assistente: Não entendi essa pergunta e não encontrei nenhum produto relacionado no estoque. 🤔\n\n"
+            "Algumas coisas que posso responder agora:\n"
+            "• 'quais produtos estão acabando'\n"
+            "• 'valor total do estoque'\n"
+            "• 'vendas de hoje'\n"
+            "• ou o **nome de um produto** que você quer consultar\n\n"
+            "Digite 'ajuda' para ver a lista completa de comandos."
+        )
 
-    except Exception as e:
-        return f"🤖 Assistente: Ocorreu um erro ao processar a pergunta: {str(e)}"
+    except Exception:
+        # Loga o erro completo internamente (não expõe detalhes técnicos ao usuário)
+        logger.exception("Falha ao processar mensagem do chat IA: %r", mensagem)
+        return (
+            "🤖 Assistente: Tive um problema ao processar sua pergunta agora. "
+            "Pode tentar reformular ou digitar 'ajuda' para ver os comandos disponíveis."
+        )
