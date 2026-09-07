@@ -28,6 +28,18 @@
       <div class="metric-card__label">Produtos críticos</div>
       <div class="metric-card__value">{{ criticos }}</div>
     </div>
+    <a href="{{ url_for('pcp_lista', status='Em Andamento') }}" style="display:block;">
+      <div class="metric-card">
+        <div class="metric-card__label">OPs em andamento</div>
+        <div class="metric-card__value">{{ ops_em_andamento }}</div>
+      </div>
+    </a>
+    <a href="{{ url_for('pcp_insumos_risco') }}" style="display:block;">
+      <div class="metric-card critico">
+        <div class="metric-card__label">Insumos para OPs em risco</div>
+        <div class="metric-card__value">{{ insumos_em_risco }}</div>
+      </div>
+    </a>
   </div>
 
   <div class="panel">
@@ -84,6 +96,9 @@
       <div class="panel__empty">Nenhuma ruptura prevista para os próximos dias.</div>
       {% endif %}
     </div>
+  </div>
+</div>
+{% endblock %}
   </div>
 </div>
 {% endblock %}
