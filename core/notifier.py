@@ -54,6 +54,58 @@ def enviar_alerta_telegram(mensagem):
     t.start()
     return t
 
+# ---------------------------------------------------------------------
+# NOTIFICAÇÕES DE PCP / ORDENS DE PRODUÇÃO
+# ---------------------------------------------------------------------
+
+def notificar_op_risco(op_id, produto_nome, quantidade, itens_insuficientes):
+    """Envia UMA mensagem consolidada quando uma OP é criada com insumos
+    insuficientes. 'itens_insuficientes' é uma lista de dicts com
+    nome, necessario, disponivel, unidade."""
+    try:
+        linhas = "\n".join(
+            f"• {it['nome']}: necessário {it['necessario']:.3f} {it['unidade']} "
+            f"| disponível {it['disponivel']:.3f} {it['unidade']}"
+            for it in itens_insuficientes
+        )
+        msg = (
+            "⚠️ ALERTA DE PRODUÇÃO\n\n"
+            f"OP #{op_id} criada com falta de insumos.\n\n"
+            f"Produto: {produto_nome}\n"
+            f"Quantidade: {quantidade}\n\n"
+            f"Insumos insuficientes:\n{linhas}\n\n"
+            "Verifique o estoque antes de iniciar a produção."
+        )
+        return enviar_alerta_telegram(msg)
+    except Exception as e:
+        print(f"❌ [Telegram Erro ao montar alerta de OP em risco]: {e}")
+        return None
+
+
+def notificar_op_concluida(op_id, produto_nome, quantidade, codigo_lote):
+    """Envia notificação de OP concluída — só deve ser chamada depois que a
+    conclusão já foi persistida com sucesso no banco."""
+    try:
+        msg = (
+            "✅ ORDEM DE PRODUÇÃO CONCLUÍDA\n\n"
+            f"OP #{op_id}\n\n"
+            f"Produto: {produto_nome}\n"
+            f"Quantidade produzida: {quantidade}\n"
+            f"Lote: {codigo_lote}\n\n"
+            "Produção concluída com sucesso."
+        )
+        return enviar_alerta_telegram(msg)
+    except Exception as e:
+        print(f"❌ [Telegram Erro ao montar alerta de OP concluída]: {e}")
+        return None
+
+
+if __name__ == "__main__":
+    print("⏳ Testando envio ao Telegram...")
+    t = enviar_alerta_telegram("🔔 TESTE DE SISTEMA!\n\nBot configurado e funcionando perfeitamente sem travar o sistema!")
+    if t:
+        t.join(timeout=10)  # Aguarda o envio terminar durante o teste direto
+
 if __name__ == "__main__":
     print("⏳ Testando envio ao Telegram...")
     t = enviar_alerta_telegram("🔔 TESTE DE SISTEMA!\n\nBot configurado e funcionando perfeitamente sem travar o sistema!")
