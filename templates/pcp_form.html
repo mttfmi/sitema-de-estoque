@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Nova OP — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 560px;">
+  <div class="page__title">Nova Ordem de Produção</div>
+  <div class="page__subtitle">Selecione o produto e a quantidade a produzir</div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 24px;">
+      {% if not produtos %}
+      <div class="panel__empty">
+        Nenhum produto com Ficha Técnica cadastrada.
+        <a href="{{ url_for('ficha_tecnica_nova') }}">Cadastre uma ficha técnica</a> antes de criar uma OP.
+      </div>
+      {% else %}
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field">
+          <label for="produto_id">Produto a produzir</label>
+          <select id="produto_id" name="produto_id" required>
+            <option value="" disabled selected>Selecione o produto...</option>
+            {% for p in produtos %}
+            <option value="{{ p[0] }}">{{ p[2] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="quantidade">Quantidade planejada</label>
+          <input type="number" id="quantidade" name="quantidade" step="0.0001" min="0.0001" required>
+        </div>
+
+        <div class="field">
+          <label for="data_prevista">Data prevista</label>
+          <input type="text" id="data_prevista" name="data_prevista" placeholder="Ex: 15/09/2026">
+        </div>
+
+        <div class="field">
+          <label for="observacao">Observação</label>
+          <input type="text" id="observacao" name="observacao" placeholder="Opcional">
+        </div>
+
+        <div style="display:flex; gap: 10px; margin-top: 10px;">
+          <button type="submit" class="btn-primary">✅ Criar OP</button>
+          <a href="{{ url_for('pcp_lista') }}" style="flex-shrink:0;">
+            <button type="button" class="btn-secondary">Cancelar</button>
+          </a>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

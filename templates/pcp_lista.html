@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}PCP (OPs) — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">PCP — Ordens de Produção</div>
+      <div class="page__subtitle">{{ ops|length }} OP(s){{ ' — filtro: ' + status_filtro if status_filtro }}</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      {% if status_filtro %}
+      <a href="{{ url_for('pcp_lista') }}"><button type="button" class="btn-secondary" style="width:auto; padding: 10px 18px;">Limpar filtro</button></a>
+      {% endif %}
+      <a href="{{ url_for('pcp_nova') }}">
+        <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Nova OP</button>
+      </a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if ops %}
+      <table>
+        <thead>
+          <tr><th>OP</th><th>Produto</th><th>Qtd</th><th>Criada em</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for op in ops %}
+          <tr>
+            <td class="mono">#{{ op[0] }}</td>
+            <td>{{ op[2] }}</td>
+            <td class="mono">{{ op[3] }}</td>
+            <td class="mono">{{ op[4] }}</td>
+            <td>
+              {% if op[6] == 'Concluída' %}
+                <span class="tag tag--ok">Concluída</span>
+              {% elif op[6] == 'Cancelada' %}
+                <span class="tag" style="color:var(--text-muted); background:var(--surface-alt);">Cancelada</span>
+              {% elif op[9] %}
+                <span class="tag tag--critico">{{ op[6] }} · Em risco</span>
+              {% else %}
+                <span class="tag tag--atencao">{{ op[6] }}</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <a href="{{ url_for('pcp_detalhe', op_id=op[0]) }}">
+                <button type="button" class="btn-secondary" style="width:auto; padding: 6px 12px; font-size:13px;">Ver detalhes</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhuma Ordem de Produção encontrada.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

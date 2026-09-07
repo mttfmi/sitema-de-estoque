@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if modo == 'editar' else 'Nova' }} Ficha Técnica — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 720px;">
+  <div class="page__title">{{ 'Editar Ficha Técnica' if modo == 'editar' else 'Nova Ficha Técnica' }}</div>
+  <div class="page__subtitle">Defina os insumos e quantidades necessárias para fabricar o produto</div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 24px;">
+      <form method="POST" id="form-ficha">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field">
+          <label for="produto_id">Produto final</label>
+          {% if modo == 'editar' %}
+            <input type="text" value="{{ ficha[2] }}" disabled>
+            <input type="hidden" name="produto_id" value="{{ ficha[1] }}">
+          {% else %}
+            <select id="produto_id" name="produto_id" required>
+              <option value="" disabled selected>Selecione o produto...</option>
+              {% for p in produtos %}
+              <option value="{{ p[0] }}">{{ p[2] }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label>Insumos necessários</label>
+          <table id="tabela-itens">
+            <thead>
+              <tr><th>Insumo</th><th style="width:110px;">Quantidade</th><th style="width:100px;">Unidade</th><th></th></tr>
+            </thead>
+            <tbody id="itens-body">
+              {% for item in itens %}
+              <tr>
+                <td>
+                  <select name="insumo_id[]" required>
+                    {% for i in insumos %}
+                    <option value="{{ i[0] }}" {{ 'selected' if i[0] == item[1] }}>{{ i[2] }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" step="0.0001" min="0.0001" name="quantidade[]" value="{{ item[3] }}" required></td>
+                <td>
+                  <select name="unidade[]">
+                    {% for u in ['kg','g','l','ml','un'] %}
+                    <option value="{{ u }}" {{ 'selected' if u == item[4] }}>{{ u }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><button type="button" class="btn-icon btn-remover-item" title="Remover">✕</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <button type="button" id="btn-add-item" class="btn-secondary" style="margin-top:10px;">+ Adicionar insumo</button>
+        </div>
+
+        <div style="display:flex; gap: 10px; margin-top: 18px;">
+          <button type="submit" class="btn-primary">
+            {{ '💾 Salvar Alterações' if modo == 'editar' else '✅ Cadastrar Ficha Técnica' }}
+          </button>
+          <a href="{{ url_for('ficha_tecnica_lista') }}" style="flex-shrink:0;">
+            <button type="button" class="btn-secondary">Cancelar</button>
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<template id="template-linha-item">
+  <tr>
+    <td>
+      <select name="insumo_id[]" required>
+        <option value="" disabled selected>Selecione...</option>
+        {% for i in insumos %}
+        <option value="{{ i[0] }}">{{ i[2] }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td><input type="number" step="0.0001" min="0.0001" name="quantidade[]" required></td>
+    <td>
+      <select name="unidade[]">
+        {% for u in ['kg','g','l','ml','un'] %}
+        <option value="{{ u }}">{{ u }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td><button type="button" class="btn-icon btn-remover-item" title="Remover">✕</button></td>
+  </tr>
+</template>
+
+<script>
+  const itensBody = document.getElementById('itens-body');
+  const template = document.getElementById('template-linha-item');
+
+  document.getElementById('btn-add-item').addEventListener('click', () => {
+    const linha = template.content.cloneNode(true);
+    itensBody.appendChild(linha);
+  });
+
+  itensBody.addEventListener('click', (ev) => {
+    if (ev.target.classList.contains('btn-remover-item')) {
+      ev.target.closest('tr').remove();
+    }
+  });
+
+  document.getElementById('form-ficha').addEventListener('submit', (ev) => {
+    if (itensBody.querySelectorAll('tr').length === 0) {
+      ev.preventDefault();
+      alert('Adicione ao menos um insumo à ficha técnica.');
+    }
+  });
+</script>
+{% endblock %}

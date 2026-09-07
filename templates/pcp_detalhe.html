@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}OP #{{ op[0] }} — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">Ordem de Produção #{{ op[0] }}</div>
+      <div class="page__subtitle">{{ op[2] }} — {{ op[3] }} unidade(s)</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      {% if op[6] == 'Planejada' %}
+      <form method="POST" action="{{ url_for('pcp_iniciar', op_id=op[0]) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secondary" style="width:auto; padding: 10px 18px;">▶️ Iniciar Produção</button>
+      </form>
+      {% endif %}
+      {% if op[6] == 'Em Andamento' %}
+      <form method="POST" action="{{ url_for('pcp_concluir', op_id=op[0]) }}"
+            onsubmit="return confirm('Concluir a OP #{{ op[0] }}? Isso vai dar baixa nos insumos e gerar um lote.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-primary" style="width:auto; padding: 10px 18px; background: var(--verde);">✅ Concluir OP</button>
+      </form>
+      {% endif %}
+      {% if op[6] in ('Planejada', 'Em Andamento') %}
+      <form method="POST" action="{{ url_for('pcp_cancelar', op_id=op[0]) }}"
+            onsubmit="return confirm('Cancelar a OP #{{ op[0] }}?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secondary" style="width:auto; padding: 10px 18px;">✕ Cancelar OP</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">Dados da OP</div>
+    <div class="panel__body" style="padding: 20px; display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:16px;">
+      <div><div class="page__subtitle" style="margin-bottom:2px;">Status</div>
+        {% if op[6] == 'Concluída' %}<span class="tag tag--ok">Concluída</span>
+        {% elif op[6] == 'Cancelada' %}<span class="tag" style="color:var(--text-muted); background:var(--surface-alt);">Cancelada</span>
+        {% elif op[9] %}<span class="tag tag--critico">{{ op[6] }} · Em risco</span>
+        {% else %}<span class="tag tag--atencao">{{ op[6] }}</span>{% endif %}
+      </div>
+      <div><div class="page__subtitle" style="margin-bottom:2px;">Criada em</div><span class="mono">{{ op[4] }}</span></div>
+      <div><div class="page__subtitle" style="margin-bottom:2px;">Data prevista</div><span class="mono">{{ op[5] or '—' }}</span></div>
+      <div><div class="page__subtitle" style="margin-bottom:2px;">Responsável</div>{{ op[8] or '—' }}</div>
+      {% if op[10] %}<div><div class="page__subtitle" style="margin-bottom:2px;">Concluída em</div><span class="mono">{{ op[10] }}</span></div>{% endif %}
+      {% if op[7] %}<div style="grid-column: 1 / -1;"><div class="page__subtitle" style="margin-bottom:2px;">Observação</div>{{ op[7] }}</div>{% endif %}
+    </div>
+  </div>
+
+  {% if lote %}
+  <div class="panel">
+    <div class="panel__header">📦 Lote gerado</div>
+    <div class="panel__body" style="padding: 20px;">
+      <span class="tag tag--ok" style="font-size:13px; padding:6px 12px;">{{ lote[1] }}</span>
+      <span style="margin-left:12px;">{{ lote[4] }} unidade(s) produzidas em {{ lote[5] }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">🧾 Insumos necessários (Ficha Técnica)</div>
+    <div class="panel__body">
+      {% if necessidades %}
+      <table>
+        <thead>
+          <tr><th>Insumo</th><th>Necessário</th><th>Disponível</th><th>Situação</th></tr>
+        </thead>
+        <tbody>
+          {% for n in necessidades %}
+          <tr>
+            <td>{{ n.nome }}</td>
+            <td class="mono">{{ "%.3f"|format(n.necessario) }} {{ n.unidade }}</td>
+            <td class="mono">{{ "%.3f"|format(n.disponivel) }} {{ n.unidade }}</td>
+            <td>
+              {% if n.situacao == 'Disponível' %}
+                <span class="tag tag--ok">Disponível</span>
+              {% else %}
+                <span class="tag tag--critico">Insuficiente</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Este produto não possui Ficha Técnica cadastrada.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

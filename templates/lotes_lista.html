@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Lotes — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">Lotes</div>
+      <div class="page__subtitle">{{ lotes|length }} lote(s) encontrado(s)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 20px;">
+      <form method="GET" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; align-items:end;">
+        <div class="field" style="margin-bottom:0;">
+          <label for="codigo">Código do lote</label>
+          <input type="text" id="codigo" name="codigo" value="{{ filtros.codigo }}" placeholder="Ex: LOTE-20260906">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="produto">Produto</label>
+          <input type="text" id="produto" name="produto" value="{{ filtros.produto }}" placeholder="Nome do produto">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="op_id">Nº da OP</label>
+          <input type="number" id="op_id" name="op_id" value="{{ filtros.op_id }}" placeholder="Ex: 12">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="data">Data de fabricação</label>
+          <input type="text" id="data" name="data" value="{{ filtros.data }}" placeholder="Ex: 06/09/2026">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="submit" class="btn-primary" style="width:auto; padding: 10px 18px;">Buscar</button>
+          <a href="{{ url_for('lotes_lista') }}"><button type="button" class="btn-secondary" style="width:auto; padding: 10px 18px;">Limpar</button></a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if lotes %}
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Produto</th><th>Quantidade</th><th>Fabricado em</th><th>OP</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for l in lotes %}
+          <tr>
+            <td class="mono">{{ l[1] }}</td>
+            <td>{{ l[3] }}</td>
+            <td class="mono">{{ l[4] }}</td>
+            <td class="mono">{{ l[5] }}</td>
+            <td>
+              {% if l[7] %}
+              <a href="{{ url_for('pcp_detalhe', op_id=l[7]) }}"><span class="tag tag--atencao">OP #{{ l[7] }}</span></a>
+              {% else %}—{% endif %}
+            </td>
+            <td><span class="tag tag--ok">{{ l[8] }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum lote encontrado.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

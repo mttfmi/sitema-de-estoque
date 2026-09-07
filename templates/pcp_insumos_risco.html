@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Insumos em Risco — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">Insumos para OPs em Risco</div>
+      <div class="page__subtitle">Insumos com estoque insuficiente para atender às OPs abertas (Planejadas / Em Andamento)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if insumos %}
+      <table>
+        <thead>
+          <tr><th>Insumo</th><th>Necessário (OPs abertas)</th><th>Disponível</th><th>OPs afetadas</th></tr>
+        </thead>
+        <tbody>
+          {% for i in insumos %}
+          <tr>
+            <td>{{ i.nome }}</td>
+            <td class="mono">{{ "%.3f"|format(i.necessario) }} {{ i.unidade }}</td>
+            <td class="mono">{{ "%.3f"|format(i.disponivel) }} {{ i.unidade }}</td>
+            <td>
+              {% for op_id in i.ops %}
+              <a href="{{ url_for('pcp_detalhe', op_id=op_id) }}"><span class="tag tag--critico">OP #{{ op_id }}</span></a>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhum insumo em risco no momento.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

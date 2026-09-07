@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Ficha Técnica — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page__header">
+    <div>
+      <div class="page__title">Ficha Técnica</div>
+      <div class="page__subtitle">{{ fichas|length }} ficha(s) cadastrada(s)</div>
+    </div>
+    <a href="{{ url_for('ficha_tecnica_nova') }}">
+      <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Nova Ficha Técnica</button>
+    </a>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      {% if fichas %}
+      <table>
+        <thead>
+          <tr><th>Produto final</th><th>Insumos</th><th>Criado em</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in fichas %}
+          <tr>
+            <td>{{ f[2] }}</td>
+            <td class="mono">{{ f[4] }} insumo(s)</td>
+            <td class="mono">{{ f[3] }}</td>
+            <td style="text-align:right; white-space:nowrap;">
+              <a href="{{ url_for('ficha_tecnica_editar', ficha_id=f[0]) }}">
+                <button type="button" class="btn-icon" title="Editar">✏️</button>
+              </a>
+              <form method="POST" action="{{ url_for('ficha_tecnica_deletar', ficha_id=f[0]) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Excluir a ficha técnica de \'{{ f[2] }}\'?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="panel__empty">Nenhuma ficha técnica cadastrada ainda. Clique em "+ Nova Ficha Técnica" para começar.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
