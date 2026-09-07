@@ -26,6 +26,18 @@ from core.auth import (
 from core.ai_chat import responder_chat_ia
 from core.ai_search import buscar_produtos_ia
 from core.exporter import exportar_excel, exportar_pdf, exportar_ordem_compra_pdf
+from core.validators import parse_float, parse_int
+from core.ficha_tecnica import (
+    init_ficha_tecnica_db, listar_fichas_tecnicas, get_ficha_tecnica,
+    get_ficha_tecnica_por_produto, criar_ficha_tecnica, atualizar_ficha_tecnica,
+    deletar_ficha_tecnica, produto_tem_ficha_tecnica
+)
+from core.pcp import (
+    init_pcp_db, listar_ops, get_op, criar_op, iniciar_op, concluir_op,
+    cancelar_op, calcular_necessidades, op_em_risco,
+    contar_ops_em_andamento, listar_insumos_em_risco, contar_insumos_em_risco
+)
+from core.lotes import init_lotes_db, listar_lotes, get_lote_por_op
 
 # FLASK_ENV=production nas variáveis de ambiente do host (Render/Railway) —
 # em desenvolvimento local, deixe sem definir (ou defina como "development")
@@ -156,6 +168,9 @@ def dashboard():
         key=lambda x: x["dias_restantes"]
     )[:5]
 
+    ops_em_andamento = contar_ops_em_andamento()
+    insumos_em_risco = contar_insumos_em_risco()
+
     return render_template(
         "dashboard.html",
         total_produtos=total_produtos,
@@ -163,6 +178,8 @@ def dashboard():
         criticos=criticos,
         baixos=baixos,
         proximos_ruptura=proximos_ruptura,
+        ops_em_andamento=ops_em_andamento,
+        insumos_em_risco=insumos_em_risco,
     )
 
 
@@ -183,9 +200,15 @@ def produto_novo():
         codigo = request.form.get("codigo", "").strip()
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao", "").strip()
-        preco = float(request.form.get("preco") or 0)
-        quantidade = int(request.form.get("quantidade") or 0)
-        estoque_minimo = int(request.form.get("estoque_minimo") or 5)
+
+        preco, erro_preco = parse_float(request.form.get("preco"), "Preço", minimo=0)
+        quantidade, erro_qtd = parse_float(request.form.get("quantidade"), "Quantidade", minimo=0)
+        estoque_minimo, erro_min = parse_int(request.form.get("estoque_minimo") or 5, "Estoque mínimo", minimo=0)
+
+        erro = erro_preco or erro_qtd or erro_min
+        if erro:
+            flash(erro, "erro")
+            return render_template("produto_form.html", modo="novo", produto=None)
 
         if not nome:
             flash("O nome do produto é obrigatório.", "erro")
@@ -210,9 +233,15 @@ def produto_editar(produto_id):
         codigo = request.form.get("codigo", "").strip()
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao", "").strip()
-        preco = float(request.form.get("preco") or 0)
-        quantidade = int(request.form.get("quantidade") or 0)
-        estoque_minimo = int(request.form.get("estoque_minimo") or 5)
+
+        preco, erro_preco = parse_float(request.form.get("preco"), "Preço", minimo=0)
+        quantidade, erro_qtd = parse_float(request.form.get("quantidade"), "Quantidade", minimo=0)
+        estoque_minimo, erro_min = parse_int(request.form.get("estoque_minimo") or 5, "Estoque mínimo", minimo=0)
+
+        erro = erro_preco or erro_qtd or erro_min
+        if erro:
+            flash(erro, "erro")
+            return render_template("produto_form.html", modo="editar", produto=produto)
 
         if not nome:
             flash("O nome do produto é obrigatório.", "erro")
@@ -230,8 +259,8 @@ def produto_editar(produto_id):
 def produto_deletar(produto_id):
     produto = next((p for p in get_todos_produtos() if p[0] == produto_id), None)
     if produto:
-        deletar_produto(produto_id)
-        flash(f"Produto '{produto[2]}' excluído.", "sucesso")
+        ok, msg = deletar_produto(produto_id)
+        flash(msg, "sucesso" if ok else "erro")
     return redirect(url_for("produtos"))
 
 
@@ -250,27 +279,54 @@ def pdv():
 @app.route("/pdv/adicionar", methods=["POST"])
 @login_required
 def pdv_adicionar():
-    produto_id = int(request.form.get("produto_id"))
-    quantidade = int(request.form.get("quantidade") or 1)
+    produto_id, erro_id = parse_int(request.form.get("produto_id"), "Produto", obrigatorio=True)
+    quantidade, erro_qtd = parse_float(request.form.get("quantidade") or 1, "Quantidade", minimo=0)
+
+    if erro_id or erro_qtd:
+        flash(erro_id or erro_qtd, "erro")
+        return redirect(url_for("pdv"))
 
     produto = next((p for p in get_todos_produtos() if p[0] == produto_id), None)
     if not produto:
         flash("Produto não encontrado.", "erro")
         return redirect(url_for("pdv"))
 
-    if quantidade <= 0 or quantidade > (produto[5] or 0):
-        flash(f"Quantidade inválida. Estoque disponível: {produto[5] or 0} un.", "erro")
+    if quantidade <= 0:
+        flash("Quantidade inválida.", "erro")
         return redirect(url_for("pdv"))
 
+    estoque_disponivel = produto[5] or 0
+
+    # Corrige o bug de carrinho: soma a quantidade já existente no carrinho
+    # (consolidada no mesmo produto) com a nova solicitação, e só então
+    # compara com o estoque — evita que duas adições pequenas somadas
+    # ultrapassem o estoque real.
     carrinho = session.get("carrinho", [])
+    item_existente = next((item for item in carrinho if item["id"] == produto_id), None)
+    qtd_ja_no_carrinho = item_existente["qtd"] if item_existente else 0
+    total_solicitado = qtd_ja_no_carrinho + quantidade
+
+    if total_solicitado > estoque_disponivel:
+        flash(
+            f"Quantidade inválida. Você já possui {qtd_ja_no_carrinho} unidade(s) deste "
+            f"produto no carrinho e existem apenas {estoque_disponivel} unidade(s) "
+            "disponíveis em estoque.",
+            "erro"
+        )
+        return redirect(url_for("pdv"))
+
     preco = produto[4] or 0.0
-    carrinho.append({
-        "id": produto_id,
-        "nome": produto[2],
-        "qtd": quantidade,
-        "preco": preco,
-        "subtotal": round(preco * quantidade, 2),
-    })
+    if item_existente:
+        item_existente["qtd"] = total_solicitado
+        item_existente["subtotal"] = round(preco * total_solicitado, 2)
+    else:
+        carrinho.append({
+            "id": produto_id,
+            "nome": produto[2],
+            "qtd": quantidade,
+            "preco": preco,
+            "subtotal": round(preco * quantidade, 2),
+        })
     session["carrinho"] = carrinho
     return redirect(url_for("pdv"))
 
@@ -299,6 +355,223 @@ def pdv_finalizar():
     session["carrinho"] = []
     flash(f"Venda #{venda_id} finalizada! Total: R$ {total:.2f}", "sucesso")
     return redirect(url_for("pdv"))
+
+
+# ---------------------------------------------------------------------
+# FICHA TÉCNICA
+# ---------------------------------------------------------------------
+@app.route("/ficha-tecnica")
+@login_required
+def ficha_tecnica_lista():
+    fichas = listar_fichas_tecnicas()
+    return render_template("ficha_tecnica_lista.html", fichas=fichas)
+
+
+def _produtos_disponiveis_para_ficha(produto_atual_id=None):
+    """Produtos que ainda não têm ficha técnica (mais o produto atual, se
+    estivermos editando)."""
+    produtos = get_todos_produtos()
+    com_ficha = {f[1] for f in listar_fichas_tecnicas()}
+    return [p for p in produtos if p[0] not in com_ficha or p[0] == produto_atual_id]
+
+
+def _ler_itens_ficha_do_form():
+    """Lê os arrays paralelos insumo_id[]/quantidade[]/unidade[] do form e
+    retorna (itens, erro). itens: lista de (insumo_id, quantidade, unidade)."""
+    insumo_ids = request.form.getlist("insumo_id[]")
+    quantidades = request.form.getlist("quantidade[]")
+    unidades = request.form.getlist("unidade[]")
+
+    itens = []
+    vistos = set()
+    for i in range(len(insumo_ids)):
+        if not insumo_ids[i]:
+            continue
+        insumo_id, erro_id = parse_int(insumo_ids[i], "Insumo", obrigatorio=True)
+        quantidade, erro_qtd = parse_float(
+            quantidades[i] if i < len(quantidades) else None,
+            "Quantidade do insumo", minimo=0.0001, obrigatorio=True
+        )
+        if erro_id or erro_qtd:
+            return None, erro_id or erro_qtd
+        if insumo_id in vistos:
+            return None, "Não é possível repetir o mesmo insumo na ficha técnica."
+        vistos.add(insumo_id)
+        unidade = (unidades[i] if i < len(unidades) else "un") or "un"
+        itens.append((insumo_id, quantidade, unidade))
+
+    return itens, None
+
+
+@app.route("/ficha-tecnica/nova", methods=["GET", "POST"])
+@login_required
+def ficha_tecnica_nova():
+    if request.method == "POST":
+        produto_id, erro_id = parse_int(request.form.get("produto_id"), "Produto", obrigatorio=True)
+        if erro_id:
+            flash(erro_id, "erro")
+            return redirect(url_for("ficha_tecnica_nova"))
+
+        itens, erro_itens = _ler_itens_ficha_do_form()
+        if erro_itens:
+            flash(erro_itens, "erro")
+            return render_template(
+                "ficha_tecnica_form.html", modo="novo", ficha=None, itens=[],
+                produtos=_produtos_disponiveis_para_ficha(), insumos=get_todos_produtos()
+            )
+
+        ok, msg = criar_ficha_tecnica(produto_id, itens)
+        flash(msg, "sucesso" if ok else "erro")
+        if ok:
+            return redirect(url_for("ficha_tecnica_lista"))
+
+    return render_template(
+        "ficha_tecnica_form.html", modo="novo", ficha=None, itens=[],
+        produtos=_produtos_disponiveis_para_ficha(), insumos=get_todos_produtos()
+    )
+
+
+@app.route("/ficha-tecnica/<int:ficha_id>/editar", methods=["GET", "POST"])
+@login_required
+def ficha_tecnica_editar(ficha_id):
+    cabecalho, itens_atuais = get_ficha_tecnica(ficha_id)
+    if not cabecalho:
+        flash("Ficha técnica não encontrada.", "erro")
+        return redirect(url_for("ficha_tecnica_lista"))
+
+    if request.method == "POST":
+        itens, erro_itens = _ler_itens_ficha_do_form()
+        if erro_itens:
+            flash(erro_itens, "erro")
+        else:
+            ok, msg = atualizar_ficha_tecnica(ficha_id, itens)
+            flash(msg, "sucesso" if ok else "erro")
+            if ok:
+                return redirect(url_for("ficha_tecnica_lista"))
+
+    return render_template(
+        "ficha_tecnica_form.html", modo="editar", ficha=cabecalho, itens=itens_atuais,
+        produtos=_produtos_disponiveis_para_ficha(cabecalho[1]), insumos=get_todos_produtos()
+    )
+
+
+@app.route("/ficha-tecnica/<int:ficha_id>/deletar", methods=["POST"])
+@login_required
+def ficha_tecnica_deletar(ficha_id):
+    deletar_ficha_tecnica(ficha_id)
+    flash("Ficha técnica excluída.", "sucesso")
+    return redirect(url_for("ficha_tecnica_lista"))
+
+
+# ---------------------------------------------------------------------
+# PCP / ORDENS DE PRODUÇÃO
+# ---------------------------------------------------------------------
+@app.route("/pcp")
+@login_required
+def pcp_lista():
+    status_filtro = request.args.get("status") or None
+    ops = listar_ops(status_filtro)
+    return render_template("pcp_lista.html", ops=ops, status_filtro=status_filtro)
+
+
+@app.route("/pcp/insumos-em-risco")
+@login_required
+def pcp_insumos_risco():
+    insumos = listar_insumos_em_risco()
+    return render_template("pcp_insumos_risco.html", insumos=insumos)
+
+
+@app.route("/pcp/nova", methods=["GET", "POST"])
+@login_required
+def pcp_nova():
+    produtos_com_ficha = [
+        p for p in get_todos_produtos()
+        if produto_tem_ficha_tecnica(p[0])
+    ]
+
+    if request.method == "POST":
+        produto_id, erro_id = parse_int(request.form.get("produto_id"), "Produto", obrigatorio=True)
+        quantidade, erro_qtd = parse_float(request.form.get("quantidade"), "Quantidade planejada", minimo=0.0001, obrigatorio=True)
+        data_prevista = request.form.get("data_prevista", "").strip()
+        observacao = request.form.get("observacao", "").strip()
+
+        erro = erro_id or erro_qtd
+        if erro:
+            flash(erro, "erro")
+        elif not produto_tem_ficha_tecnica(produto_id):
+            flash("Este produto não possui Ficha Técnica cadastrada.", "erro")
+        else:
+            op_id, em_risco = criar_op(
+                produto_id, quantidade, data_prevista, observacao,
+                current_user.id, current_user.nome_completo
+            )
+            if em_risco:
+                flash(f"OP #{op_id} criada, porém em risco por falta de insumos.", "erro")
+            else:
+                flash(f"OP #{op_id} criada com sucesso.", "sucesso")
+            return redirect(url_for("pcp_detalhe", op_id=op_id))
+
+    return render_template("pcp_form.html", produtos=produtos_com_ficha)
+
+
+@app.route("/pcp/<int:op_id>")
+@login_required
+def pcp_detalhe(op_id):
+    op = get_op(op_id)
+    if not op:
+        flash("Ordem de Produção não encontrada.", "erro")
+        return redirect(url_for("pcp_lista"))
+
+    necessidades = calcular_necessidades(op[1], op[3])
+    lote = get_lote_por_op(op_id) if op[6] == "Concluída" else None
+
+    return render_template("pcp_detalhe.html", op=op, necessidades=necessidades, lote=lote)
+
+
+@app.route("/pcp/<int:op_id>/iniciar", methods=["POST"])
+@login_required
+def pcp_iniciar(op_id):
+    ok, msg = iniciar_op(op_id)
+    flash(msg, "sucesso" if ok else "erro")
+    return redirect(url_for("pcp_detalhe", op_id=op_id))
+
+
+@app.route("/pcp/<int:op_id>/concluir", methods=["POST"])
+@login_required
+def pcp_concluir(op_id):
+    ok, msg, lote_id = concluir_op(op_id)
+    flash(msg, "sucesso" if ok else "erro")
+    return redirect(url_for("pcp_detalhe", op_id=op_id))
+
+
+@app.route("/pcp/<int:op_id>/cancelar", methods=["POST"])
+@login_required
+def pcp_cancelar(op_id):
+    ok, msg = cancelar_op(op_id)
+    flash(msg, "sucesso" if ok else "erro")
+    return redirect(url_for("pcp_detalhe", op_id=op_id))
+
+
+# ---------------------------------------------------------------------
+# LOTES
+# ---------------------------------------------------------------------
+@app.route("/lotes")
+@login_required
+def lotes_lista():
+    codigo = request.args.get("codigo") or None
+    produto = request.args.get("produto") or None
+    op_id = request.args.get("op_id") or None
+    data = request.args.get("data") or None
+
+    op_id_val = None
+    if op_id:
+        op_id_val, _ = parse_int(op_id, "OP")
+
+    lotes = listar_lotes(codigo=codigo, produto=produto, op_id=op_id_val, data=data)
+    return render_template(
+        "lotes_lista.html", lotes=lotes,
+        filtros={"codigo": codigo or "", "produto": produto or "", "op_id": op_id or "", "data": data or ""}
+    )
 
 
 # ---------------------------------------------------------------------
@@ -436,6 +709,13 @@ def usuario_deletar(usuario_id):
 # INICIALIZAÇÃO
 # ---------------------------------------------------------------------
 init_db()
+# Tabelas do PCP — precisam ser criadas depois de init_db() porque têm
+# chaves estrangeiras para a tabela produtos. Ordem importa: ficha técnica
+# e OPs referenciam produtos; lotes referenciam produtos e ordens_producao.
+init_ficha_tecnica_db()
+init_pcp_db()
+init_lotes_db()
+
 # O modelo de busca por IA (sentence_transformers) NÃO é carregado aqui no
 # boot: no free tier do Render (512MB de RAM) isso estoura a memória e o
 # processo é reiniciado silenciosamente. Ele é carregado sob demanda, em
