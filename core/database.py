@@ -104,6 +104,20 @@ def init_db():
         cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_minimo INTEGER DEFAULT 5")
 
     conn.commit()
+
+    # Migração para o PCP: insumos de uma Ficha Técnica podem ser medidos em
+    # unidades fracionadas (kg, litros...), então a coluna de estoque precisa
+    # aceitar decimais. Só altera o tipo se ainda estiver como INTEGER —
+    # idempotente, não afeta os valores já cadastrados.
+    cursor.execute('''
+        SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'produtos' AND column_name = 'quantidade'
+    ''')
+    tipo_atual = cursor.fetchone()
+    if tipo_atual and tipo_atual[0] == "integer":
+        cursor.execute("ALTER TABLE produtos ALTER COLUMN quantidade TYPE REAL")
+        conn.commit()
+
     cursor.close()
     conn.close()
 
@@ -226,7 +240,11 @@ def atualizar_produto(p_id, codigo, nome, descricao, preco, quantidade, estoque_
     registrar_log(nome, "✏️ EDIÇÃO", quantidade)
 
 def deletar_produto(p_id):
-    """Exclui um produto do banco de dados"""
+    """Exclui um produto do banco de dados.
+    Retorna (ok, mensagem). Produtos referenciados por Ficha Técnica, Ordens
+    de Produção ou Lotes não podem ser excluídos (violaria integridade
+    referencial) — nesse caso retorna um erro amigável em vez de deixar
+    a exceção do banco estourar como erro 500."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -234,12 +252,23 @@ def deletar_produto(p_id):
     res = cursor.fetchone()
     nome = res[0] if res else "Produto Desconhecido"
 
-    cursor.execute('DELETE FROM produtos WHERE id=%s', (p_id,))
-    conn.commit()
+    try:
+        cursor.execute('DELETE FROM produtos WHERE id=%s', (p_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return False, (
+            f"Não é possível excluir '{nome}': ele está em uso em uma Ficha Técnica, "
+            "Ordem de Produção ou Lote. Remova essas referências primeiro."
+        )
+
     cursor.close()
     conn.close()
 
     registrar_log(nome, "🗑️ EXCLUSÃO", 0)
+    return True, f"Produto '{nome}' excluído."
 
 # ---------------------------------------------------------------------
 # MÓDULO DE VENDAS E TELEGRAM
