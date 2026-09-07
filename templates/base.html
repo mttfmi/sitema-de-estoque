@@ -20,6 +20,9 @@
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
       <a href="{{ url_for('pdv') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pdv') }}">PDV</a>
       <a href="{{ url_for('produtos') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('produto') }}">Produtos</a>
+      <a href="{{ url_for('ficha_tecnica_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('ficha_tecnica') }}">Ficha Técnica</a>
+      <a href="{{ url_for('pcp_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pcp') }}">PCP (OPs)</a>
+      <a href="{{ url_for('lotes_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('lotes') }}">Lotes</a>
       <a href="{{ url_for('historico') }}" class="{{ 'active' if request.endpoint == 'historico' }}">Histórico</a>
       <a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('chat') }}">Chat IA</a>
       <a href="{{ url_for('busca') }}" class="{{ 'active' if request.endpoint == 'busca' }}">Busca IA</a>
@@ -47,6 +50,9 @@
     {% endwith %}
 
     {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
   </main>
 </body>
 </html>
