@@ -81,6 +81,14 @@
   </div>
 </div>
 
+<!-- Polyfill do BarcodeDetector (API nativa do navegador, usa WebAssembly) —
+     precisa carregar ANTES do html5-qrcode. No Chrome Android o navegador já
+     tem essa API nativamente, mas no Safari/iPhone e em outros navegadores
+     ela não existe, e o html5-qrcode cai para um decodificador em JS puro
+     bem mais fraco pra código de barras. Esse polyfill roda 100% no
+     navegador do usuário (nenhum custo no servidor/Render) e faz o
+     html5-qrcode usar o decodificador rápido em todo lugar. -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
 <!-- Biblioteca de leitura de código de barras/QR direto no navegador (usa a câmera do dispositivo do usuário) -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>

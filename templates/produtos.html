@@ -79,6 +79,12 @@
   </div>
 </div>
 
+<!-- Polyfill do BarcodeDetector (API nativa do navegador, usa WebAssembly) —
+     precisa carregar ANTES do html5-qrcode. Sem ele, fora do Chrome Android
+     (ex: Safari/iPhone) o html5-qrcode cai pra um decodificador em JS puro
+     bem mais fraco pra código de barras. Roda 100% no navegador do usuário,
+     sem custo nenhum no servidor/Render. -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   const btnEscanearRapido = document.getElementById('btn-escanear-rapido');
