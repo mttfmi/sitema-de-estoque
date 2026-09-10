@@ -1,6 +1,8 @@
 import hashlib
 import os
 import re
+import time
+from collections import defaultdict
 from datetime import datetime
 
 from core.database import get_connection
@@ -108,10 +110,38 @@ def _gerar_hash(senha, salt=None):
 
 
 def validar_forca_senha(senha):
-    # Validação simplificada para uso em protótipo — aceita qualquer senha não vazia.
     if not senha:
         return False, "A senha não pode ficar em branco."
+    if len(senha) < 8:
+        return False, "A senha precisa ter pelo menos 8 caracteres."
     return True, ""
+
+
+# ---------------------------------------------------------------------
+# PROTEÇÃO CONTRA FORÇA BRUTA NO LOGIN
+# ---------------------------------------------------------------------
+# Guarda em memória (por processo) os horários das tentativas de login
+# malsucedidas por usuário. Não sobrevive a um reinício do processo nem é
+# compartilhada entre múltiplas instâncias — é uma limitação aceitável no
+# plano gratuito do Render, que roda uma única instância.
+_TENTATIVAS_FALHAS = defaultdict(list)
+_MAX_TENTATIVAS = 5
+_JANELA_BLOQUEIO_SEGUNDOS = 5 * 60
+
+
+def _login_temporariamente_bloqueado(usuario):
+    agora = time.time()
+    tentativas = [t for t in _TENTATIVAS_FALHAS[usuario] if agora - t < _JANELA_BLOQUEIO_SEGUNDOS]
+    _TENTATIVAS_FALHAS[usuario] = tentativas
+    return len(tentativas) >= _MAX_TENTATIVAS
+
+
+def _registrar_tentativa_falha(usuario):
+    _TENTATIVAS_FALHAS[usuario].append(time.time())
+
+
+def _limpar_tentativas_falhas(usuario):
+    _TENTATIVAS_FALHAS.pop(usuario, None)
 
 
 # ---------------------------------------------------------------------
@@ -227,6 +257,13 @@ def verificar_login(usuario, senha):
     """
     usuario = usuario.strip().lower()
 
+    if _login_temporariamente_bloqueado(usuario):
+        minutos = _JANELA_BLOQUEIO_SEGUNDOS // 60
+        return False, None, (
+            f"Muitas tentativas de login incorretas para este usuário. "
+            f"Aguarde {minutos} minutos antes de tentar novamente."
+        )
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
@@ -238,6 +275,7 @@ def verificar_login(usuario, senha):
     conn.close()
 
     if not row:
+        _registrar_tentativa_falha(usuario)
         return False, None, "Usuário não encontrado."
 
     p_id, uname, nome, senha_hash_salva, salt, nivel, ativo = row
@@ -251,8 +289,10 @@ def verificar_login(usuario, senha):
     hash_calculado, _ = _gerar_hash(senha, salt)
 
     if hash_calculado != senha_hash_salva:
+        _registrar_tentativa_falha(usuario)
         return False, None, "Senha incorreta."
 
+    _limpar_tentativas_falhas(usuario)
     dados_usuario = {
         "id": p_id,
         "usuario": uname,

@@ -46,6 +46,7 @@
               <form method="POST" action="{{ url_for('produto_deletar', produto_id=p[0]) }}"
                     style="display:inline;"
                     onsubmit="return confirm('Excluir o produto \'{{ p[2] }}\'? Essa ação não pode ser desfeita.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
               </form>
             </td>

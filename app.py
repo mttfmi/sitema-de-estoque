@@ -1,5 +1,6 @@
 import io
 import os
+import secrets
 
 from dotenv import load_dotenv
 load_dotenv()  # carrega variáveis do arquivo .env automaticamente (uso local)
@@ -13,6 +14,7 @@ from flask_login import (
     login_required, current_user
 )
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from core.database import (
     init_db, get_todos_produtos, get_produtos_baixo_estoque,
@@ -45,9 +47,32 @@ PRODUCAO = os.environ.get("FLASK_ENV") == "production"
 
 app = Flask(__name__)
 
+# O Render (e qualquer host atrás de proxy reverso) entrega a requisição pro
+# gunicorn já "internamente", então sem isso o Flask acha que toda requisição
+# veio de HTTP puro e do mesmo IP interno do proxy — quebra a detecção de
+# HTTPS (cookie Secure) e o remetente real (request.remote_addr, usado no
+# bloqueio de força bruta do login logo abaixo). x_for=1/x_proto=1 confiam
+# em exatamente um "salto" de proxy na frente, que é o caso do Render.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # Em produção, defina a variável de ambiente SECRET_KEY com um valor
-# aleatório e forte (ex: python -c "import secrets; print(secrets.token_hex(32))")
-app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-antes-de-hospedar")
+# aleatório e forte (ex: python -c "import secrets; print(secrets.token_hex(32))").
+# Se isso não for feito, o app cairia no valor fixo abaixo — que qualquer
+# pessoa pode ver no repositório público do GitHub e usar pra forjar sessões
+# e tokens CSRF de qualquer usuário. Por isso, em produção sem SECRET_KEY
+# definida, gera uma chave aleatória a cada início do processo em vez de
+# usar o valor público: fecha o buraco de segurança sem exigir configuração
+# extra pra o site continuar no ar. O único efeito colateral é que sessões
+# abertas não sobrevivem a um reinício do servidor enquanto SECRET_KEY não
+# for configurada — vale configurar assim que possível.
+_SECRET_KEY_PADRAO_DEV = "troque-esta-chave-antes-de-hospedar"
+_secret_key_env = os.environ.get("SECRET_KEY")
+if _secret_key_env:
+    app.secret_key = _secret_key_env
+elif PRODUCAO:
+    app.secret_key = secrets.token_hex(32)
+else:
+    app.secret_key = _SECRET_KEY_PADRAO_DEV
 
 # Flags de segurança do cookie de sessão — em produção (HTTPS), o cookie só
 # trafega criptografado e nunca é acessível via JavaScript (mitiga roubo de
@@ -58,6 +83,11 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=PRODUCAO,
+    # Limite de tamanho do corpo da requisição — sem isso, alguém poderia
+    # mandar um corpo de requisição enorme (ex: um campo de texto gigante)
+    # e estourar a memória do processo, que no plano gratuito do Render é
+    # de só 512MB. Nenhum formulário do sistema precisa de mais que isso.
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,  # 2 MB
 )
 
 # Proteção CSRF: gera um token único por sessão que todo formulário POST
@@ -65,6 +95,19 @@ app.config.update(
 # página que faz o navegador da vítima excluir produtos/usuários sem ela
 # perceber, aproveitando a sessão já autenticada.
 csrf = CSRFProtect(app)
+
+
+@app.after_request
+def _adicionar_cabecalhos_seguranca(resposta):
+    """Cabeçalhos básicos de segurança em toda resposta — mitigam MIME
+    sniffing, clickjacking (a tela nunca precisa ser embutida num iframe
+    de outro site) e vazamento de URL completa via Referer entre sites."""
+    resposta.headers["X-Content-Type-Options"] = "nosniff"
+    resposta.headers["X-Frame-Options"] = "DENY"
+    resposta.headers["Referrer-Policy"] = "same-origin"
+    if PRODUCAO:
+        resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resposta
 
 login_manager = LoginManager()
 login_manager.init_app(app)

@@ -26,14 +26,19 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 def get_connection():
     """Abre uma nova conexão com o banco Postgres (Supabase).
-    SSL é obrigatório para conexões externas ao Supabase."""
+    SSL é obrigatório para conexões externas ao Supabase.
+    connect_timeout evita que o processo fique pendurado indefinidamente se
+    o Supabase estiver lento, pausado (o plano gratuito pausa o projeto após
+    um tempo sem uso) ou inacessível — sem isso, isso trava a inicialização
+    inteira do app (init_db() roda na subida do servidor), fazendo o deploy
+    no Render nunca terminar em vez de falhar rápido com um erro visível."""
     if not DATABASE_URL:
         raise RuntimeError(
             "Variável de ambiente DATABASE_URL não definida! "
             "Configure com a connection string do seu projeto Supabase "
             "antes de rodar o sistema."
         )
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+    return psycopg2.connect(DATABASE_URL, sslmode="require", connect_timeout=10)
 
 
 def init_db():
