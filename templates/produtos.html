@@ -68,6 +68,9 @@
       <div id="scanner-rapido-status" class="page__subtitle" style="margin: 12px 0 0; text-align:center;">
         Aponte a câmera para o código de barras do produto...
       </div>
+      <!-- Reconhecimento genérico de objeto (roda no navegador, não no servidor) —
+           ajuda a confirmar visualmente e sugere um nome inicial ao abrir o cadastro. -->
+      <div id="scanner-rapido-objeto" style="margin: 6px 0 0; text-align:center; font-size:13px; color: var(--azul-hover);"></div>
       <button type="button" id="btn-cancelar-scanner-rapido" class="btn-secondary" style="width:100%; margin-top:12px;">
         Cancelar
       </button>
@@ -81,8 +84,96 @@
   const btnCancelarRapido = document.getElementById('btn-cancelar-scanner-rapido');
   const scannerRapidoWrap = document.getElementById('scanner-rapido-wrap');
   const scannerRapidoStatus = document.getElementById('scanner-rapido-status');
+  const scannerRapidoObjeto = document.getElementById('scanner-rapido-objeto');
 
   let html5QrCodeRapido = null;
+
+  // ---------------------------------------------------------------------
+  // Detecção genérica de objeto (TensorFlow.js + COCO-SSD) — roda 100% no
+  // navegador do usuário, sem tocar no servidor (importante no plano
+  // gratuito do Render, de RAM limitada). Reconhece ~80 categorias
+  // genéricas do COCO (garrafa, caixa, celular...), não o produto
+  // específico do catálogo — só ajuda a pré-preencher um nome inicial
+  // editável ao abrir a tela de cadastro.
+  const TRADUCOES_COCO = {
+    bottle: "garrafa", cup: "copo/xícara", book: "livro", cell_phone: "celular",
+    laptop: "notebook", keyboard: "teclado", mouse: "mouse", remote: "controle remoto",
+    scissors: "tesoura", "hair_drier": "secador de cabelo", toothbrush: "escova de dente",
+    bowl: "tigela", vase: "vaso", clock: "relógio", handbag: "bolsa", backpack: "mochila",
+    suitcase: "mala", umbrella: "guarda-chuva", box: "caixa", wine_glass: "taça",
+    fork: "garfo", knife: "faca", spoon: "colher", banana: "banana", apple: "maçã",
+    orange: "laranja", sports_ball: "bola", teddy_bear: "urso de pelúcia",
+  };
+
+  let cocoModelRapido = null;
+  let carregandoBibliotecasRapido = null;
+  let intervaloDeteccaoRapido = null;
+  let ultimoObjetoDetectado = "";
+
+  function traduzirClasseCoco(classe) {
+    const chave = classe.toLowerCase().replace(/ /g, "_");
+    return TRADUCOES_COCO[chave] || classe;
+  }
+
+  function carregarBibliotecasDeteccaoObjeto() {
+    if (carregandoBibliotecasRapido) return carregandoBibliotecasRapido;
+    carregandoBibliotecasRapido = new Promise((resolve, reject) => {
+      if (window.tf && window.cocoSsd) return resolve();
+      const scriptTf = document.createElement('script');
+      scriptTf.src = 'https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
+      scriptTf.onload = () => {
+        const scriptCoco = document.createElement('script');
+        scriptCoco.src = 'https://unpkg.com/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
+        scriptCoco.onload = resolve;
+        scriptCoco.onerror = reject;
+        document.head.appendChild(scriptCoco);
+      };
+      scriptTf.onerror = reject;
+      document.head.appendChild(scriptTf);
+    });
+    return carregandoBibliotecasRapido;
+  }
+
+  async function iniciarDeteccaoObjetoRapido() {
+    try {
+      await carregarBibliotecasDeteccaoObjeto();
+      if (!cocoModelRapido) {
+        scannerRapidoObjeto.textContent = '⏳ Carregando reconhecimento de objeto...';
+        cocoModelRapido = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+      }
+      if (intervaloDeteccaoRapido) return;
+      intervaloDeteccaoRapido = setInterval(async () => {
+        if (!html5QrCodeRapido || !cocoModelRapido) return;
+        const video = document.querySelector('#scanner-rapido-reader video');
+        if (!video || video.readyState < 2) return;
+        try {
+          const previsoes = await cocoModelRapido.detect(video);
+          if (previsoes.length > 0) {
+            const melhor = previsoes.reduce((a, b) => (a.score > b.score ? a : b));
+            ultimoObjetoDetectado = traduzirClasseCoco(melhor.class);
+            scannerRapidoObjeto.textContent =
+              `🔎 Objeto no quadro: ${ultimoObjetoDetectado} (${Math.round(melhor.score * 100)}%)`;
+          } else {
+            scannerRapidoObjeto.textContent = '';
+          }
+        } catch (e) {
+          // ignora falha pontual de um frame — tenta de novo no próximo ciclo
+        }
+      }, 800);
+    } catch (err) {
+      // Reconhecimento de objeto é só um extra visual — se falhar, o
+      // scanner de código de barras continua funcionando normalmente.
+      console.error('Detecção de objeto indisponível:', err);
+    }
+  }
+
+  function pararDeteccaoObjetoRapido() {
+    if (intervaloDeteccaoRapido) {
+      clearInterval(intervaloDeteccaoRapido);
+      intervaloDeteccaoRapido = null;
+    }
+    scannerRapidoObjeto.textContent = '';
+  }
 
   function pararScannerRapido() {
     if (html5QrCodeRapido) {
@@ -93,6 +184,7 @@
         html5QrCodeRapido = null;
       });
     }
+    pararDeteccaoObjetoRapido();
     scannerRapidoWrap.style.display = 'none';
   }
 
@@ -127,11 +219,18 @@
         (textoDecodificado) => {
           scannerRapidoStatus.textContent = '✅ Código lido: ' + textoDecodificado + ' — abrindo cadastro...';
           pararScannerRapido();
-          // Leva direto pro formulário de novo produto, já com o código preenchido
-          window.location.href = "{{ url_for('produto_novo') }}?codigo=" + encodeURIComponent(textoDecodificado);
+          // Leva direto pro formulário de novo produto, já com o código (e, se
+          // detectado, um nome sugerido) preenchidos
+          let destino = "{{ url_for('produto_novo') }}?codigo=" + encodeURIComponent(textoDecodificado);
+          if (ultimoObjetoDetectado) {
+            const nomeSugerido = ultimoObjetoDetectado.charAt(0).toUpperCase() + ultimoObjetoDetectado.slice(1);
+            destino += "&nome=" + encodeURIComponent(nomeSugerido);
+          }
+          window.location.href = destino;
         },
         () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
       );
+      iniciarDeteccaoObjetoRapido();
     } catch (err) {
       scannerRapidoStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';
       console.error(err);

@@ -29,9 +29,9 @@
           <label for="data">Data de fabricação</label>
           <input type="text" id="data" name="data" value="{{ filtros.data }}" placeholder="Ex: 06/09/2026">
         </div>
-        <div style="display:flex; gap:8px;">
+        <div class="filtros__acoes">
           <button type="submit" class="btn-primary" style="width:auto; padding: 10px 18px;">Buscar</button>
-          <a href="{{ url_for('lotes_lista') }}"><button type="button" class="btn-secondary" style="width:auto; padding: 10px 18px;">Limpar</button></a>
+          <a href="{{ url_for('lotes_lista') }}" class="btn-secondary" style="width:auto; padding: 10px 18px; display:inline-flex; align-items:center; justify-content:center;">Limpar</a>
         </div>
       </form>
     </div>

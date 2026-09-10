@@ -28,6 +28,10 @@
           <div id="scanner-status" class="page__subtitle" style="margin: 8px 0 0; text-align:center;">
             Aponte a câmera para o código de barras...
           </div>
+          <!-- Reconhecimento genérico de objeto (roda no navegador, não no servidor) —
+               ajuda a confirmar visualmente que há um produto no quadro. Não identifica
+               qual produto específico é, só a categoria geral (ex: "garrafa", "caixa"). -->
+          <div id="scanner-objeto" style="margin: 6px 0 0; text-align:center; font-size:13px; color: var(--azul-hover);"></div>
           <button type="button" id="btn-cancelar-scanner" class="btn-secondary" style="width:100%; margin-top:8px;">
             Cancelar
           </button>
@@ -36,7 +40,7 @@
         <div class="field">
           <label for="nome">Nome do produto *</label>
           <input type="text" id="nome" name="nome" required autofocus
-                 value="{{ produto[2] if produto else '' }}">
+                 value="{{ produto[2] if produto else (nome_prepreenchido or '') }}">
         </div>
 
         <div class="field">
@@ -84,9 +88,110 @@
   const btnCancelar = document.getElementById('btn-cancelar-scanner');
   const scannerWrap = document.getElementById('scanner-wrap');
   const scannerStatus = document.getElementById('scanner-status');
+  const scannerObjeto = document.getElementById('scanner-objeto');
   const inputCodigo = document.getElementById('codigo');
+  const inputNome = document.getElementById('nome');
 
   let html5QrCode = null;
+
+  // ---------------------------------------------------------------------
+  // Detecção genérica de objeto (TensorFlow.js + COCO-SSD) — roda 100% no
+  // navegador do usuário, sem tocar no servidor. No plano gratuito do
+  // Render (RAM limitada) isso é essencial: nada aqui consome memória do
+  // servidor, é só um modelinho leve baixado e executado no celular/PC de
+  // quem está cadastrando. Ele reconhece ~80 categorias genéricas do COCO
+  // (garrafa, caixa, celular, livro...) — não identifica qual produto
+  // específico do seu catálogo é, só ajuda a confirmar visualmente que há
+  // algo no quadro e sugere um nome inicial editável.
+  const TRADUCOES_COCO = {
+    bottle: "garrafa", cup: "copo/xícara", book: "livro", cell_phone: "celular",
+    laptop: "notebook", keyboard: "teclado", mouse: "mouse", remote: "controle remoto",
+    scissors: "tesoura", "hair_drier": "secador de cabelo", toothbrush: "escova de dente",
+    bowl: "tigela", vase: "vaso", clock: "relógio", handbag: "bolsa", backpack: "mochila",
+    suitcase: "mala", umbrella: "guarda-chuva", box: "caixa", wine_glass: "taça",
+    fork: "garfo", knife: "faca", spoon: "colher", banana: "banana", apple: "maçã",
+    orange: "laranja", sports_ball: "bola", teddy_bear: "urso de pelúcia",
+  };
+
+  let cocoModel = null;
+  let carregandoBibliotecas = null;
+  let intervaloDeteccao = null;
+
+  function traduzirClasseCoco(classe) {
+    const chave = classe.toLowerCase().replace(/ /g, "_");
+    return TRADUCOES_COCO[chave] || classe;
+  }
+
+  function carregarBibliotecasDeteccaoObjeto() {
+    if (carregandoBibliotecas) return carregandoBibliotecas;
+    carregandoBibliotecas = new Promise((resolve, reject) => {
+      if (window.tf && window.cocoSsd) return resolve();
+      const scriptTf = document.createElement('script');
+      scriptTf.src = 'https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
+      scriptTf.onload = () => {
+        const scriptCoco = document.createElement('script');
+        scriptCoco.src = 'https://unpkg.com/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
+        scriptCoco.onload = resolve;
+        scriptCoco.onerror = reject;
+        document.head.appendChild(scriptCoco);
+      };
+      scriptTf.onerror = reject;
+      document.head.appendChild(scriptTf);
+    });
+    return carregandoBibliotecas;
+  }
+
+  async function iniciarDeteccaoObjeto() {
+    try {
+      await carregarBibliotecasDeteccaoObjeto();
+      if (!cocoModel) {
+        scannerObjeto.textContent = '⏳ Carregando reconhecimento de objeto...';
+        cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+      }
+      if (intervaloDeteccao) return;
+      intervaloDeteccao = setInterval(async () => {
+        if (!html5QrCode || !cocoModel) return;
+        const video = document.querySelector('#scanner-reader video');
+        if (!video || video.readyState < 2) return;
+        try {
+          const previsoes = await cocoModel.detect(video);
+          if (previsoes.length > 0) {
+            const melhor = previsoes.reduce((a, b) => (a.score > b.score ? a : b));
+            const nomeTraduzido = traduzirClasseCoco(melhor.class);
+            scannerObjeto.innerHTML =
+              `🔎 Objeto no quadro: <strong>${nomeTraduzido}</strong> (${Math.round(melhor.score * 100)}%) ` +
+              `— <a href="#" id="link-usar-sugestao" style="color: var(--azul-hover);">usar como nome</a>`;
+            const link = document.getElementById('link-usar-sugestao');
+            if (link) {
+              link.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                if (!inputNome.value.trim()) {
+                  inputNome.value = nomeTraduzido.charAt(0).toUpperCase() + nomeTraduzido.slice(1);
+                }
+              });
+            }
+          } else {
+            scannerObjeto.textContent = '';
+          }
+        } catch (e) {
+          // ignora falha pontual de um frame — tenta de novo no próximo ciclo
+        }
+      }, 800);
+    } catch (err) {
+      // Reconhecimento de objeto é só um extra visual — se falhar (ex: sem
+      // internet pra baixar o modelo), o scanner de código de barras
+      // continua funcionando normalmente sem essa ajuda.
+      console.error('Detecção de objeto indisponível:', err);
+    }
+  }
+
+  function pararDeteccaoObjeto() {
+    if (intervaloDeteccao) {
+      clearInterval(intervaloDeteccao);
+      intervaloDeteccao = null;
+    }
+    scannerObjeto.textContent = '';
+  }
 
   function pararScanner() {
     if (html5QrCode) {
@@ -97,6 +202,7 @@
         html5QrCode = null;
       });
     }
+    pararDeteccaoObjeto();
     scannerWrap.style.display = 'none';
   }
 
@@ -138,6 +244,7 @@
         },
         () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
       );
+      iniciarDeteccaoObjeto();
     } catch (err) {
       scannerStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';
       console.error(err);

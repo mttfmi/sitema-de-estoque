@@ -301,7 +301,10 @@ textarea:focus {
   justify-content: space-between;
 }
 
-.panel__body { padding: 4px 0; }
+/* overflow-x:auto evita que tabelas largas (Lotes, Produtos...) fiquem
+   cortadas em telas estreitas — em vez disso, rolam horizontalmente
+   dentro do próprio painel, sem quebrar o layout da página. */
+.panel__body { padding: 4px 0; overflow-x: auto; }
 .panel__empty {
   padding: 32px 20px;
   color: var(--text-muted);
@@ -373,6 +376,7 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
   color: #fff;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
   margin-top: 6px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, var(--shadow-sm);
@@ -382,6 +386,11 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-primary:active { transform: translateY(1px); }
 
+/* line-height:1 nas duas classes acima/abaixo — um <button> real já usa
+   uma métrica de linha mais compacta por padrão do navegador, mas um <a>
+   com a mesma classe (ex: "Limpar" em Lotes) herda o line-height:1.55 do
+   body, ficando visivelmente mais alto que um botão de verdade ao lado.
+   Fixando explicitamente, os dois ficam com a mesma altura sempre. */
 .btn-secondary {
   padding: 11px 16px;
   border-radius: var(--radius-sm);
@@ -389,6 +398,7 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
   background: var(--surface-alt);
   color: var(--text);
   font-size: 14px;
+  line-height: 1;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -405,6 +415,21 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
   transition: opacity 0.15s, background 0.15s;
 }
 .btn-icon:hover { opacity: 1; background: var(--surface-alt); }
+
+/* Linha de ações de um filtro (ex: Buscar/Limpar em Lotes). Sem
+   align-items:center, um <button> normal e um <a> que estica pra
+   preencher a altura da linha (comportamento padrão de flex "stretch")
+   acabam com alturas diferentes e parecem desalinhados verticalmente. */
+.filtros__acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* .btn-primary tem margin-top:6px (pensado pra ficar abaixo de um campo
+   de formulário) — aqui, lado a lado com "Limpar", isso empurrava só o
+   "Buscar" pra baixo. Zera a margem pra os dois ficarem na mesma linha. */
+.filtros__acoes > * { margin: 0; }
 
 /* ---------------------------------------------------------- */
 /* LOGIN                                                         */
@@ -526,4 +551,44 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
   .login-shell { grid-template-columns: 1fr; max-width: 420px; }
   .login-hero { display: none; }
   .login-form-side { padding: 40px 30px; }
+}
+
+/* ---------------------------------------------------------- */
+/* MOBILE — barra superior e telas com filtros (ex: Lotes)      */
+/* ---------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .page { padding: 24px 16px 40px; }
+
+  /* A barra superior tinha marca + 10 links de navegação + usuário
+     tudo numa linha só, sem nenhuma regra de responsividade — em telas
+     estreitas isso empurrava o botão "Sair" pra fora da tela. Agora
+     quebra em duas linhas: marca/usuário em cima, nav rolável embaixo. */
+  .topbar {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    row-gap: 10px;
+  }
+
+  .topbar__nav {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .topbar__nav a { flex-shrink: 0; padding: 8px 12px; }
+
+  .topbar__user { gap: 10px; font-size: 12px; }
+
+  /* O nome completo do usuário só cabe em telas largas; o badge de
+     nível de acesso e o botão "Sair" continuam sempre visíveis. */
+  .topbar__user > span:not(.badge) { display: none; }
+
+  /* Formulário de filtro (Lotes): cada campo já ocupa a largura toda
+     graças ao grid auto-fit — só os botões precisam de ajuste pra
+     ficarem lado a lado, do mesmo tamanho, fáceis de tocar. */
+  .filtros__acoes { width: 100%; }
+  .filtros__acoes > * { flex: 1; }
 }

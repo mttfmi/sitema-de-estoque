@@ -219,7 +219,11 @@ def produto_novo():
         return redirect(url_for("produtos"))
 
     codigo_prepreenchido = request.args.get("codigo", "")
-    return render_template("produto_form.html", modo="novo", produto=None, codigo_prepreenchido=codigo_prepreenchido)
+    nome_prepreenchido = request.args.get("nome", "")
+    return render_template(
+        "produto_form.html", modo="novo", produto=None,
+        codigo_prepreenchido=codigo_prepreenchido, nome_prepreenchido=nome_prepreenchido
+    )
 
 
 @app.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
