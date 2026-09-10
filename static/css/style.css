@@ -446,85 +446,46 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
     var(--bg);
 }
 
-.login-shell {
+/* Cartão de login — antes desta correção, o template usava as classes
+   .login-card/.login-card__brand mas o CSS só tinha regras para
+   .login-shell/.login-hero/.login-form-side (design antigo de duas
+   colunas, de quando havia um painel de marca ao lado do formulário).
+   Como nenhuma classe batia, a tela de login ficava sem estilo nenhum —
+   inputs brancos padrão do navegador, sem cartão, sem tema escuro. */
+.login-card {
   width: 100%;
-  max-width: 860px;
-  min-height: 520px;
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  max-width: 400px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  padding: 40px 36px;
   box-shadow: var(--shadow-lg);
 }
 
-/* Painel de marca: repete o motivo de código de barras em tamanho
-   grande — o único elemento "ousado" da tela, tudo o mais é discreto. */
-.login-hero {
-  position: relative;
-  padding: 44px 40px;
+.login-card__brand {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  background: linear-gradient(165deg, var(--azul-soft), #0d1520 75%);
-  border-right: 1px solid var(--border);
-  overflow: hidden;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
 }
 
-.login-hero__barcode {
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    90deg,
-    rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 3px,
-    transparent 3px, transparent 7px,
-    rgba(255,255,255,0.14) 7px, rgba(255,255,255,0.14) 8px,
-    transparent 8px, transparent 14px,
-    rgba(255,255,255,0.14) 14px, rgba(255,255,255,0.14) 18px,
-    transparent 18px, transparent 24px
-  );
-  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), transparent 75%);
-          mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), transparent 75%);
-  opacity: 0.9;
-}
-
-.login-hero__content { position: relative; z-index: 1; }
-
-.login-hero__eyebrow {
+.login-card__brand .barcode {
   font-family: var(--font-mono);
+  letter-spacing: -1px;
   color: var(--azul-hover);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  margin-bottom: 14px;
-}
-
-.login-hero__title {
   font-size: 26px;
+}
+
+.login-card__brand span:last-child {
   font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-  margin-bottom: 10px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
 }
 
-.login-hero__desc {
-  color: rgba(244,245,247,0.68);
-  font-size: 14px;
-  line-height: 1.6;
-  max-width: 30ch;
-}
-
-.login-form-side {
-  padding: 48px 44px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.login-form-side h1 {
-  font-size: 20px;
+.login-card h1 {
+  font-size: 21px;
   font-weight: 650;
-  margin: 0 0 26px;
+  margin: 0 0 22px;
 }
 
 .field { margin-bottom: 16px; }
@@ -547,10 +508,10 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
 .flash--erro { background: var(--vermelho-soft); color: #f4a7a3; border-left-color: var(--vermelho); }
 .flash--sucesso { background: var(--verde-soft); color: #8fdba7; border-left-color: var(--verde); }
 
-@media (max-width: 760px) {
-  .login-shell { grid-template-columns: 1fr; max-width: 420px; }
-  .login-hero { display: none; }
-  .login-form-side { padding: 40px 30px; }
+@media (max-width: 420px) {
+  .login-wrap { padding: 16px; }
+  .login-card { padding: 32px 22px; }
+  .login-card__brand { margin-bottom: 26px; }
 }
 
 /* ---------------------------------------------------------- */

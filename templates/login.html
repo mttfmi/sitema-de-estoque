@@ -9,7 +9,10 @@
 <body>
   <div class="login-wrap">
     <div class="login-card">
-      <div class="login-card__brand">|||‖||| ESTOQUE &amp; PDV</div>
+      <div class="login-card__brand">
+        <span class="barcode">|||‖|||</span>
+        <span>ESTOQUE &amp; PDV</span>
+      </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
