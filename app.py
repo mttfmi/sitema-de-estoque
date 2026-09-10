@@ -55,24 +55,17 @@ app = Flask(__name__)
 # em exatamente um "salto" de proxy na frente, que é o caso do Render.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-# Em produção, defina a variável de ambiente SECRET_KEY com um valor
-# aleatório e forte (ex: python -c "import secrets; print(secrets.token_hex(32))").
-# Se isso não for feito, o app cairia no valor fixo abaixo — que qualquer
-# pessoa pode ver no repositório público do GitHub e usar pra forjar sessões
-# e tokens CSRF de qualquer usuário. Por isso, em produção sem SECRET_KEY
-# definida, gera uma chave aleatória a cada início do processo em vez de
-# usar o valor público: fecha o buraco de segurança sem exigir configuração
-# extra pra o site continuar no ar. O único efeito colateral é que sessões
-# abertas não sobrevivem a um reinício do servidor enquanto SECRET_KEY não
-# for configurada — vale configurar assim que possível.
-_SECRET_KEY_PADRAO_DEV = "troque-esta-chave-antes-de-hospedar"
-_secret_key_env = os.environ.get("SECRET_KEY")
-if _secret_key_env:
-    app.secret_key = _secret_key_env
-elif PRODUCAO:
-    app.secret_key = secrets.token_hex(32)
-else:
-    app.secret_key = _SECRET_KEY_PADRAO_DEV
+# Defina a variável de ambiente SECRET_KEY com um valor aleatório e forte
+# (ex: python -c "import secrets; print(secrets.token_hex(32))") — no Render,
+# em "Environment". Sem ela, o app SEMPRE gera uma chave aleatória a cada
+# início do processo; nunca usa um valor fixo escrito aqui no código, porque
+# esse valor ficaria visível no repositório público do GitHub e qualquer
+# pessoa poderia usá-lo pra forjar sessões e tokens CSRF de qualquer usuário.
+# De propósito, isso NÃO depende de PRODUCAO/FLASK_ENV estarem configurados
+# certo — mesmo que essa detecção falhe por algum motivo, a chave nunca é
+# previsível. O único efeito colateral de não configurar SECRET_KEY é que
+# sessões abertas não sobrevivem a um reinício do servidor.
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
 # Flags de segurança do cookie de sessão — em produção (HTTPS), o cookie só
 # trafega criptografado e nunca é acessível via JavaScript (mitiga roubo de
