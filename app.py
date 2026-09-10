@@ -218,7 +218,8 @@ def produto_novo():
         flash(f"Produto '{nome}' cadastrado com sucesso!", "sucesso")
         return redirect(url_for("produtos"))
 
-    return render_template("produto_form.html", modo="novo", produto=None)
+    codigo_prepreenchido = request.args.get("codigo", "")
+    return render_template("produto_form.html", modo="novo", produto=None, codigo_prepreenchido=codigo_prepreenchido)
 
 
 @app.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
@@ -350,6 +351,22 @@ def pdv_finalizar():
     if not carrinho:
         flash("Carrinho vazio.", "erro")
         return redirect(url_for("pdv"))
+
+    # Revalida o estoque no momento de finalizar — o carrinho pode ter
+    # ficado guardado na sessão por um tempo, e nesse intervalo o estoque
+    # pode ter mudado (outra venda, edição de produto etc.). Sem isso, uma
+    # venda podia ser registrada com uma quantidade maior do que o disponível.
+    produtos_atuais = {p[0]: p for p in get_todos_produtos()}
+    for item in carrinho:
+        produto_atual = produtos_atuais.get(item["id"])
+        estoque_disponivel = (produto_atual[5] if produto_atual else 0) or 0
+        if not produto_atual or item["qtd"] > estoque_disponivel:
+            flash(
+                f"Estoque insuficiente para '{item['nome']}'. Disponível: {estoque_disponivel} "
+                "unidade(s). Ajuste o carrinho antes de finalizar.",
+                "erro"
+            )
+            return redirect(url_for("pdv"))
 
     venda_id, data_hora, total = registrar_venda(carrinho, forma_pagamento)
     session["carrinho"] = []

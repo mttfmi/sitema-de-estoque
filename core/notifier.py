@@ -105,9 +105,3 @@ if __name__ == "__main__":
     t = enviar_alerta_telegram("🔔 TESTE DE SISTEMA!\n\nBot configurado e funcionando perfeitamente sem travar o sistema!")
     if t:
         t.join(timeout=10)  # Aguarda o envio terminar durante o teste direto
-
-if __name__ == "__main__":
-    print("⏳ Testando envio ao Telegram...")
-    t = enviar_alerta_telegram("🔔 TESTE DE SISTEMA!\n\nBot configurado e funcionando perfeitamente sem travar o sistema!")
-    if t:
-        t.join(timeout=10)  # Aguarda o envio terminar durante o teste direto

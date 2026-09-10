@@ -17,7 +17,7 @@
           <label for="codigo">Código de barras</label>
           <div style="display: flex; gap: 8px;">
             <input type="text" id="codigo" name="codigo" placeholder="Ex: 7891000100103"
-                   value="{{ produto[1] if produto else '' }}" style="flex: 1;">
+                   value="{{ produto[1] if produto else (codigo_prepreenchido or '') }}" style="flex: 1;">
             <button type="button" id="btn-escanear" class="btn-secondary">📷 Escanear</button>
           </div>
         </div>
