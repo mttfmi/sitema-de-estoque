@@ -65,7 +65,10 @@
   <div id="scanner-rapido-wrap" class="panel" style="display:none;">
     <div class="panel__header">📷 Escanear código de barras</div>
     <div class="panel__body" style="padding: 20px;">
-      <div id="scanner-rapido-reader" style="width:100%; max-width:480px; margin:0 auto; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);"></div>
+      <div id="scanner-rapido-reader" style="width:100%; max-width:480px; margin:0 auto; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position:relative; background:#000;">
+        <video id="video-scanner-rapido" autoplay muted playsinline style="width:100%; display:block;"></video>
+        <div class="scanner-guia"></div>
+      </div>
       <div id="scanner-rapido-status" class="page__subtitle" style="margin: 12px 0 0; text-align:center;">
         Aponte a câmera para o código de barras do produto...
       </div>
@@ -79,21 +82,24 @@
   </div>
 </div>
 
-<!-- Polyfill do BarcodeDetector (API nativa do navegador, usa WebAssembly) —
-     precisa carregar ANTES do html5-qrcode. Sem ele, fora do Chrome Android
-     (ex: Safari/iPhone) o html5-qrcode cai pra um decodificador em JS puro
-     bem mais fraco pra código de barras. Roda 100% no navegador do usuário,
-     sem custo nenhum no servidor/Render. -->
+<!-- Polyfill do BarcodeDetector (API nativa do navegador, roda em
+     WebAssembly) — no Chrome Android o navegador já tem essa API, mas no
+     Safari/iPhone e em outros navegadores ela não existe. Roda 100% no
+     navegador do usuário, sem custo nenhum no servidor/Render. -->
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   const btnEscanearRapido = document.getElementById('btn-escanear-rapido');
   const btnCancelarRapido = document.getElementById('btn-cancelar-scanner-rapido');
   const scannerRapidoWrap = document.getElementById('scanner-rapido-wrap');
   const scannerRapidoStatus = document.getElementById('scanner-rapido-status');
   const scannerRapidoObjeto = document.getElementById('scanner-rapido-objeto');
+  const videoScannerRapido = document.getElementById('video-scanner-rapido');
 
-  let html5QrCodeRapido = null;
+  // Formatos de código de barras mais comuns em produtos de varejo + QR
+  const FORMATOS_BARCODE = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
+
+  let streamCameraRapido = null;
+  let escaneandoRapido = false;
 
   // ---------------------------------------------------------------------
   // Detecção genérica de objeto (TensorFlow.js + COCO-SSD) — roda 100% no
@@ -150,11 +156,9 @@
       }
       if (intervaloDeteccaoRapido) return;
       intervaloDeteccaoRapido = setInterval(async () => {
-        if (!html5QrCodeRapido || !cocoModelRapido) return;
-        const video = document.querySelector('#scanner-rapido-reader video');
-        if (!video || video.readyState < 2) return;
+        if (!escaneandoRapido || !cocoModelRapido || videoScannerRapido.readyState < 2) return;
         try {
-          const previsoes = await cocoModelRapido.detect(video);
+          const previsoes = await cocoModelRapido.detect(videoScannerRapido);
           if (previsoes.length > 0) {
             const melhor = previsoes.reduce((a, b) => (a.score > b.score ? a : b));
             ultimoObjetoDetectado = traduzirClasseCoco(melhor.class);
@@ -182,48 +186,18 @@
     scannerRapidoObjeto.textContent = '';
   }
 
-  function pararScannerRapido() {
-    if (html5QrCodeRapido) {
-      html5QrCodeRapido.stop().then(() => {
-        html5QrCodeRapido.clear();
-        html5QrCodeRapido = null;
-      }).catch(() => {
-        html5QrCodeRapido = null;
-      });
-    }
-    pararDeteccaoObjetoRapido();
-    scannerRapidoWrap.style.display = 'none';
-  }
-
-  btnEscanearRapido.addEventListener('click', async () => {
-    scannerRapidoWrap.style.display = 'block';
-    scannerRapidoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    scannerRapidoStatus.textContent = 'Aponte a câmera para o código de barras do produto...';
-
-    html5QrCodeRapido = new Html5Qrcode("scanner-rapido-reader");
-
-    const formatosSuportados = [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-      Html5QrcodeSupportedFormats.QR_CODE,
-    ];
-
-    try {
-      await html5QrCodeRapido.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 160 },
-          formatsToSupport: formatosSuportados,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true,
-          },
-        },
-        (textoDecodificado) => {
+  // ---------------------------------------------------------------------
+  // Leitura de código de barras via BarcodeDetector — lê o frame de vídeo
+  // diretamente (sem recorte/compressão intermediária em canvas), o que
+  // dá mais precisão pra código de barras tradicional (EAN/UPC).
+  // ---------------------------------------------------------------------
+  async function detectarCodigoBarrasRapido(detector) {
+    if (!escaneandoRapido) return;
+    if (videoScannerRapido.readyState >= 2) {
+      try {
+        const codigos = await detector.detect(videoScannerRapido);
+        if (codigos.length > 0) {
+          const textoDecodificado = codigos[0].rawValue;
           scannerRapidoStatus.textContent = '✅ Código lido: ' + textoDecodificado + ' — abrindo cadastro...';
           pararScannerRapido();
           // Leva direto pro formulário de novo produto, já com o código (e, se
@@ -234,9 +208,57 @@
             destino += "&nome=" + encodeURIComponent(nomeSugerido);
           }
           window.location.href = destino;
+          return;
+        }
+      } catch (e) {
+        // ignora falha pontual de um frame — tenta de novo no próximo ciclo
+      }
+    }
+    setTimeout(() => detectarCodigoBarrasRapido(detector), 100);
+  }
+
+  function pararScannerRapido() {
+    escaneandoRapido = false;
+    if (streamCameraRapido) {
+      streamCameraRapido.getTracks().forEach((t) => t.stop());
+      streamCameraRapido = null;
+    }
+    videoScannerRapido.srcObject = null;
+    pararDeteccaoObjetoRapido();
+    scannerRapidoWrap.style.display = 'none';
+  }
+
+  btnEscanearRapido.addEventListener('click', async () => {
+    scannerRapidoWrap.style.display = 'block';
+    scannerRapidoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scannerRapidoStatus.textContent = 'Aponte a câmera para o código de barras do produto...';
+
+    if (typeof window.BarcodeDetector !== 'function') {
+      scannerRapidoStatus.textContent = '⚠️ Seu navegador não suporta leitura de código de barras. Cadastre manualmente.';
+      return;
+    }
+
+    try {
+      // Pede a câmera traseira em resolução alta e com foco contínuo — a
+      // causa mais comum de código de barras não ser lido é vídeo de
+      // baixa resolução/sem refoco automático. "ideal"/"advanced" nunca
+      // travam a câmera: se o aparelho não suportar, o navegador ignora.
+      streamCameraRapido = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          advanced: [{ focusMode: "continuous" }],
         },
-        () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
-      );
+        audio: false,
+      });
+
+      videoScannerRapido.srcObject = streamCameraRapido;
+      await videoScannerRapido.play();
+
+      const detector = new BarcodeDetector({ formats: FORMATOS_BARCODE });
+      escaneandoRapido = true;
+      detectarCodigoBarrasRapido(detector);
       iniciarDeteccaoObjetoRapido();
     } catch (err) {
       scannerRapidoStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';

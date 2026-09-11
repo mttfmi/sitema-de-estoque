@@ -431,6 +431,23 @@ tbody tr:hover { background: rgba(255,255,255,0.025); }
    "Buscar" pra baixo. Zera a margem pra os dois ficarem na mesma linha. */
 .filtros__acoes > * { margin: 0; }
 
+/* Guia visual sobre o vídeo da câmera do scanner de código de barras —
+   só orienta onde posicionar o código; a leitura em si roda no frame de
+   vídeo inteiro, não só dentro desse retângulo. */
+.scanner-guia {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  max-width: 320px;
+  aspect-ratio: 2 / 1;
+  border: 3px solid var(--azul-hover);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
 /* ---------------------------------------------------------- */
 /* LOGIN                                                         */
 /* ---------------------------------------------------------- */

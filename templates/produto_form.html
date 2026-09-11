@@ -24,7 +24,10 @@
 
         <!-- Área da câmera: só aparece quando o usuário clica em "Escanear" -->
         <div id="scanner-wrap" style="display:none; margin: 4px 0 18px;">
-          <div id="scanner-reader" style="width:100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);"></div>
+          <div id="scanner-reader" style="width:100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position:relative; background:#000;">
+            <video id="video-scanner" autoplay muted playsinline style="width:100%; display:block;"></video>
+            <div class="scanner-guia"></div>
+          </div>
           <div id="scanner-status" class="page__subtitle" style="margin: 8px 0 0; text-align:center;">
             Aponte a câmera para o código de barras...
           </div>
@@ -81,16 +84,11 @@
   </div>
 </div>
 
-<!-- Polyfill do BarcodeDetector (API nativa do navegador, usa WebAssembly) —
-     precisa carregar ANTES do html5-qrcode. No Chrome Android o navegador já
-     tem essa API nativamente, mas no Safari/iPhone e em outros navegadores
-     ela não existe, e o html5-qrcode cai para um decodificador em JS puro
-     bem mais fraco pra código de barras. Esse polyfill roda 100% no
-     navegador do usuário (nenhum custo no servidor/Render) e faz o
-     html5-qrcode usar o decodificador rápido em todo lugar. -->
+<!-- Polyfill do BarcodeDetector (API nativa do navegador, roda em
+     WebAssembly) — no Chrome Android o navegador já tem essa API, mas no
+     Safari/iPhone e em outros navegadores ela não existe. Esse polyfill
+     roda 100% no navegador do usuário (nenhum custo no servidor/Render). -->
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
-<!-- Biblioteca de leitura de código de barras/QR direto no navegador (usa a câmera do dispositivo do usuário) -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   const btnEscanear = document.getElementById('btn-escanear');
   const btnCancelar = document.getElementById('btn-cancelar-scanner');
@@ -99,8 +97,13 @@
   const scannerObjeto = document.getElementById('scanner-objeto');
   const inputCodigo = document.getElementById('codigo');
   const inputNome = document.getElementById('nome');
+  const videoScanner = document.getElementById('video-scanner');
 
-  let html5QrCode = null;
+  // Formatos de código de barras mais comuns em produtos de varejo + QR
+  const FORMATOS_BARCODE = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
+
+  let streamCamera = null;
+  let escaneando = false;
 
   // ---------------------------------------------------------------------
   // Detecção genérica de objeto (TensorFlow.js + COCO-SSD) — roda 100% no
@@ -158,11 +161,9 @@
       }
       if (intervaloDeteccao) return;
       intervaloDeteccao = setInterval(async () => {
-        if (!html5QrCode || !cocoModel) return;
-        const video = document.querySelector('#scanner-reader video');
-        if (!video || video.readyState < 2) return;
+        if (!escaneando || !cocoModel || videoScanner.readyState < 2) return;
         try {
-          const previsoes = await cocoModel.detect(video);
+          const previsoes = await cocoModel.detect(videoScanner);
           if (previsoes.length > 0) {
             const melhor = previsoes.reduce((a, b) => (a.score > b.score ? a : b));
             const nomeTraduzido = traduzirClasseCoco(melhor.class);
@@ -201,15 +202,38 @@
     scannerObjeto.textContent = '';
   }
 
-  function pararScanner() {
-    if (html5QrCode) {
-      html5QrCode.stop().then(() => {
-        html5QrCode.clear();
-        html5QrCode = null;
-      }).catch(() => {
-        html5QrCode = null;
-      });
+  // ---------------------------------------------------------------------
+  // Leitura de código de barras via BarcodeDetector — lê o frame de vídeo
+  // diretamente (sem passar por uma etapa de recorte/compressão em canvas
+  // como bibliotecas de terceiros costumam fazer), o que dá mais precisão
+  // pra código de barras tradicional (EAN/UPC).
+  // ---------------------------------------------------------------------
+  async function detectarCodigoBarras(detector) {
+    if (!escaneando) return;
+    if (videoScanner.readyState >= 2) {
+      try {
+        const codigos = await detector.detect(videoScanner);
+        if (codigos.length > 0) {
+          const textoDecodificado = codigos[0].rawValue;
+          inputCodigo.value = textoDecodificado;
+          scannerStatus.textContent = '✅ Código lido: ' + textoDecodificado;
+          setTimeout(pararScanner, 600);
+          return;
+        }
+      } catch (e) {
+        // ignora falha pontual de um frame — tenta de novo no próximo ciclo
+      }
     }
+    setTimeout(() => detectarCodigoBarras(detector), 100);
+  }
+
+  function pararScanner() {
+    escaneando = false;
+    if (streamCamera) {
+      streamCamera.getTracks().forEach((t) => t.stop());
+      streamCamera = null;
+    }
+    videoScanner.srcObject = null;
     pararDeteccaoObjeto();
     scannerWrap.style.display = 'none';
   }
@@ -218,40 +242,34 @@
     scannerWrap.style.display = 'block';
     scannerStatus.textContent = 'Aponte a câmera para o código de barras...';
 
-    html5QrCode = new Html5Qrcode("scanner-reader");
-
-    // Formatos de código de barras mais comuns em produtos de varejo
-    const formatosSuportados = [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-      Html5QrcodeSupportedFormats.QR_CODE,
-    ];
+    if (typeof window.BarcodeDetector !== 'function') {
+      scannerStatus.textContent = '⚠️ Seu navegador não suporta leitura de código de barras. Digite o código manualmente.';
+      return;
+    }
 
     try {
-      await html5QrCode.start(
-        { facingMode: "environment" }, // usa a câmera traseira em celulares, se disponível
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 160 },
-          formatsToSupport: formatosSuportados,
-          // Em navegadores compatíveis (Chrome no Android), usa o leitor
-          // nativo do sistema em vez do leitor em JavaScript — bem mais
-          // confiável pra código de barras tradicional (EAN/UPC).
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true,
-          },
+      // Pede a câmera traseira em resolução alta e com foco contínuo — sem
+      // isso, muitos celulares entregam um vídeo de baixa resolução e sem
+      // refoco automático, que é a causa mais comum de código de barras
+      // não ser lido (imagem borrada ou sem detalhe suficiente). "ideal" e
+      // "advanced" nunca travam a câmera: se o aparelho não suportar, o
+      // navegador simplesmente ignora e usa o que conseguir.
+      streamCamera = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          advanced: [{ focusMode: "continuous" }],
         },
-        (textoDecodificado) => {
-          inputCodigo.value = textoDecodificado;
-          scannerStatus.textContent = '✅ Código lido: ' + textoDecodificado;
-          setTimeout(pararScanner, 600);
-        },
-        () => { /* erro de leitura de frame individual — ignora, é normal enquanto procura */ }
-      );
+        audio: false,
+      });
+
+      videoScanner.srcObject = streamCamera;
+      await videoScanner.play();
+
+      const detector = new BarcodeDetector({ formats: FORMATOS_BARCODE });
+      escaneando = true;
+      detectarCodigoBarras(detector);
       iniciarDeteccaoObjeto();
     } catch (err) {
       scannerStatus.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões do navegador.';
