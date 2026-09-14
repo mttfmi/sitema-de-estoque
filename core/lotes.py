@@ -4,25 +4,46 @@ from core.database import get_connection
 
 
 def init_lotes_db():
-    """Cria a tabela de lotes. Depende de produtos e ordens_producao já
-    existirem — chamar depois de init_db() e init_pcp_db()."""
+    """Cria/migra a tabela de lotes sem perder dados existentes."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lotes (
-            id SERIAL PRIMARY KEY,
-            codigo TEXT NOT NULL UNIQUE,
-            produto_id INTEGER NOT NULL REFERENCES produtos(id),
-            quantidade REAL NOT NULL,
-            data_fabricacao TEXT NOT NULL,
-            data_validade TEXT,
-            ordem_producao_id INTEGER REFERENCES ordens_producao(id),
-            status TEXT NOT NULL DEFAULT 'Ativo'
-        )
-    ''')
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lotes (
+                id SERIAL PRIMARY KEY,
+                codigo TEXT NOT NULL UNIQUE,
+                produto_id INTEGER NOT NULL REFERENCES produtos(id),
+                quantidade REAL NOT NULL,
+                data_fabricacao TEXT NOT NULL,
+                data_validade TEXT,
+                ordem_producao_id INTEGER REFERENCES ordens_producao(id),
+                status TEXT NOT NULL DEFAULT 'Ativo'
+            )
+        ''')
+
+        cursor.execute('''
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'lotes'
+        ''')
+        colunas = {row[0] for row in cursor.fetchall()}
+
+        migracoes = {
+            "data_validade": "ALTER TABLE lotes ADD COLUMN data_validade TEXT",
+            "ordem_producao_id": "ALTER TABLE lotes ADD COLUMN ordem_producao_id INTEGER REFERENCES ordens_producao(id)",
+            "status": "ALTER TABLE lotes ADD COLUMN status TEXT NOT NULL DEFAULT 'Ativo'",
+        }
+        for coluna, sql in migracoes.items():
+            if coluna not in colunas:
+                cursor.execute(sql)
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def gerar_codigo_lote(cursor):
