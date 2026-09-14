@@ -9,29 +9,60 @@ STATUS_VALIDOS = ["Planejada", "Em Andamento", "Concluída", "Cancelada"]
 
 
 def init_pcp_db():
-    """Cria a tabela de Ordens de Produção. Depende de produtos já existir
-    — chamar depois de init_db()."""
+    """Cria/migra a tabela de Ordens de Produção.
+
+    CREATE TABLE IF NOT EXISTS não adiciona colunas novas a uma tabela já
+    existente. Por isso, depois da criação, conferimos o schema e adicionamos
+    as colunas introduzidas pelas versões mais recentes do PCP.
+    """
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS ordens_producao (
-            id SERIAL PRIMARY KEY,
-            produto_id INTEGER NOT NULL REFERENCES produtos(id),
-            quantidade_planejada REAL NOT NULL,
-            data_criacao TEXT NOT NULL,
-            data_prevista TEXT,
-            status TEXT NOT NULL DEFAULT 'Planejada',
-            observacao TEXT,
-            usuario_id INTEGER,
-            usuario_nome TEXT,
-            em_risco INTEGER NOT NULL DEFAULT 0,
-            data_conclusao TEXT,
-            lote_id INTEGER
-        )
-    ''')
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ordens_producao (
+                id SERIAL PRIMARY KEY,
+                produto_id INTEGER NOT NULL REFERENCES produtos(id),
+                quantidade_planejada REAL NOT NULL,
+                data_criacao TEXT NOT NULL,
+                data_prevista TEXT,
+                status TEXT NOT NULL DEFAULT 'Planejada',
+                observacao TEXT,
+                usuario_id INTEGER,
+                usuario_nome TEXT,
+                em_risco INTEGER NOT NULL DEFAULT 0,
+                data_conclusao TEXT,
+                lote_id INTEGER
+            )
+        ''')
+
+        cursor.execute('''
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'ordens_producao'
+        ''')
+        colunas = {row[0] for row in cursor.fetchall()}
+
+        migracoes = {
+            "data_prevista": "ALTER TABLE ordens_producao ADD COLUMN data_prevista TEXT",
+            "status": "ALTER TABLE ordens_producao ADD COLUMN status TEXT NOT NULL DEFAULT 'Planejada'",
+            "observacao": "ALTER TABLE ordens_producao ADD COLUMN observacao TEXT",
+            "usuario_id": "ALTER TABLE ordens_producao ADD COLUMN usuario_id INTEGER",
+            "usuario_nome": "ALTER TABLE ordens_producao ADD COLUMN usuario_nome TEXT",
+            "em_risco": "ALTER TABLE ordens_producao ADD COLUMN em_risco INTEGER NOT NULL DEFAULT 0",
+            "data_conclusao": "ALTER TABLE ordens_producao ADD COLUMN data_conclusao TEXT",
+            "lote_id": "ALTER TABLE ordens_producao ADD COLUMN lote_id INTEGER",
+        }
+        for coluna, sql in migracoes.items():
+            if coluna not in colunas:
+                cursor.execute(sql)
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ---------------------------------------------------------------------
@@ -341,6 +372,11 @@ def listar_insumos_em_risco():
         if v["disponivel"] < v["necessario"]
     ]
     return em_risco
+
+
+def contar_insumos_em_risco():
+    return len(listar_insumos_em_risco())
+
 
 
 def contar_insumos_em_risco():
