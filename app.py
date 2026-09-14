@@ -1,6 +1,5 @@
 import io
 import os
-import secrets
 
 from dotenv import load_dotenv
 load_dotenv()  # carrega variáveis do arquivo .env automaticamente (uso local)
@@ -14,7 +13,6 @@ from flask_login import (
     login_required, current_user
 )
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 from core.database import (
     init_db, get_todos_produtos, get_produtos_baixo_estoque,
@@ -47,25 +45,9 @@ PRODUCAO = os.environ.get("FLASK_ENV") == "production"
 
 app = Flask(__name__)
 
-# O Render (e qualquer host atrás de proxy reverso) entrega a requisição pro
-# gunicorn já "internamente", então sem isso o Flask acha que toda requisição
-# veio de HTTP puro e do mesmo IP interno do proxy — quebra a detecção de
-# HTTPS (cookie Secure) e o remetente real (request.remote_addr, usado no
-# bloqueio de força bruta do login logo abaixo). x_for=1/x_proto=1 confiam
-# em exatamente um "salto" de proxy na frente, que é o caso do Render.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-# Defina a variável de ambiente SECRET_KEY com um valor aleatório e forte
-# (ex: python -c "import secrets; print(secrets.token_hex(32))") — no Render,
-# em "Environment". Sem ela, o app SEMPRE gera uma chave aleatória a cada
-# início do processo; nunca usa um valor fixo escrito aqui no código, porque
-# esse valor ficaria visível no repositório público do GitHub e qualquer
-# pessoa poderia usá-lo pra forjar sessões e tokens CSRF de qualquer usuário.
-# De propósito, isso NÃO depende de PRODUCAO/FLASK_ENV estarem configurados
-# certo — mesmo que essa detecção falhe por algum motivo, a chave nunca é
-# previsível. O único efeito colateral de não configurar SECRET_KEY é que
-# sessões abertas não sobrevivem a um reinício do servidor.
-app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+# Em produção, defina a variável de ambiente SECRET_KEY com um valor
+# aleatório e forte (ex: python -c "import secrets; print(secrets.token_hex(32))")
+app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-antes-de-hospedar")
 
 # Flags de segurança do cookie de sessão — em produção (HTTPS), o cookie só
 # trafega criptografado e nunca é acessível via JavaScript (mitiga roubo de
@@ -76,11 +58,6 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=PRODUCAO,
-    # Limite de tamanho do corpo da requisição — sem isso, alguém poderia
-    # mandar um corpo de requisição enorme (ex: um campo de texto gigante)
-    # e estourar a memória do processo, que no plano gratuito do Render é
-    # de só 512MB. Nenhum formulário do sistema precisa de mais que isso.
-    MAX_CONTENT_LENGTH=2 * 1024 * 1024,  # 2 MB
 )
 
 # Proteção CSRF: gera um token único por sessão que todo formulário POST
@@ -88,19 +65,6 @@ app.config.update(
 # página que faz o navegador da vítima excluir produtos/usuários sem ela
 # perceber, aproveitando a sessão já autenticada.
 csrf = CSRFProtect(app)
-
-
-@app.after_request
-def _adicionar_cabecalhos_seguranca(resposta):
-    """Cabeçalhos básicos de segurança em toda resposta — mitigam MIME
-    sniffing, clickjacking (a tela nunca precisa ser embutida num iframe
-    de outro site) e vazamento de URL completa via Referer entre sites."""
-    resposta.headers["X-Content-Type-Options"] = "nosniff"
-    resposta.headers["X-Frame-Options"] = "DENY"
-    resposta.headers["Referrer-Policy"] = "same-origin"
-    if PRODUCAO:
-        resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    return resposta
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -204,8 +168,16 @@ def dashboard():
         key=lambda x: x["dias_restantes"]
     )[:5]
 
-    ops_em_andamento = contar_ops_em_andamento()
-    insumos_em_risco = contar_insumos_em_risco()
+    # Os indicadores de PCP não devem derrubar o dashboard inteiro caso
+    # exista alguma inconsistência temporária de migração no banco.
+    # O erro continua aparecendo nos logs do Render para diagnóstico.
+    try:
+        ops_em_andamento = contar_ops_em_andamento()
+        insumos_em_risco = contar_insumos_em_risco()
+    except Exception as e:
+        app.logger.exception("Falha ao carregar indicadores do PCP: %s", e)
+        ops_em_andamento = 0
+        insumos_em_risco = 0
 
     return render_template(
         "dashboard.html",
@@ -254,12 +226,7 @@ def produto_novo():
         flash(f"Produto '{nome}' cadastrado com sucesso!", "sucesso")
         return redirect(url_for("produtos"))
 
-    codigo_prepreenchido = request.args.get("codigo", "")
-    nome_prepreenchido = request.args.get("nome", "")
-    return render_template(
-        "produto_form.html", modo="novo", produto=None,
-        codigo_prepreenchido=codigo_prepreenchido, nome_prepreenchido=nome_prepreenchido
-    )
+    return render_template("produto_form.html", modo="novo", produto=None)
 
 
 @app.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
@@ -391,22 +358,6 @@ def pdv_finalizar():
     if not carrinho:
         flash("Carrinho vazio.", "erro")
         return redirect(url_for("pdv"))
-
-    # Revalida o estoque no momento de finalizar — o carrinho pode ter
-    # ficado guardado na sessão por um tempo, e nesse intervalo o estoque
-    # pode ter mudado (outra venda, edição de produto etc.). Sem isso, uma
-    # venda podia ser registrada com uma quantidade maior do que o disponível.
-    produtos_atuais = {p[0]: p for p in get_todos_produtos()}
-    for item in carrinho:
-        produto_atual = produtos_atuais.get(item["id"])
-        estoque_disponivel = (produto_atual[5] if produto_atual else 0) or 0
-        if not produto_atual or item["qtd"] > estoque_disponivel:
-            flash(
-                f"Estoque insuficiente para '{item['nome']}'. Disponível: {estoque_disponivel} "
-                "unidade(s). Ajuste o carrinho antes de finalizar.",
-                "erro"
-            )
-            return redirect(url_for("pdv"))
 
     venda_id, data_hora, total = registrar_venda(carrinho, forma_pagamento)
     session["carrinho"] = []
@@ -766,12 +717,15 @@ def usuario_deletar(usuario_id):
 # INICIALIZAÇÃO
 # ---------------------------------------------------------------------
 init_db()
-# Tabelas do PCP — precisam ser criadas depois de init_db() porque têm
-# chaves estrangeiras para a tabela produtos. Ordem importa: ficha técnica
-# e OPs referenciam produtos; lotes referenciam produtos e ordens_producao.
-init_ficha_tecnica_db()
-init_pcp_db()
-init_lotes_db()
+# Tabelas adicionais. Uma falha em um módulo novo não deve impedir o sistema
+# inteiro de subir; o erro fica registrado nos logs do Render. O banco base
+# continua obrigatório, pois login/produtos dependem dele.
+try:
+    init_ficha_tecnica_db()
+    init_pcp_db()
+    init_lotes_db()
+except Exception as e:
+    app.logger.exception("Falha ao inicializar/migrar módulos de PCP: %s", e)
 
 # O modelo de busca por IA (sentence_transformers) NÃO é carregado aqui no
 # boot: no free tier do Render (512MB de RAM) isso estoura a memória e o
@@ -786,4 +740,5 @@ if __name__ == "__main__":
     # definido no host), o modo debug fica desligado — deixá-lo ligado num
     # servidor público permite que qualquer visitante execute código no seu
     # servidor através da tela de erro do Werkzeug.
-    app.run(debug=not PRODUCAO, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=not PRODUCAO, host="0.0.0.0", port=port)
