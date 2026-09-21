@@ -47,7 +47,10 @@ from core.lotes import init_lotes_db, listar_lotes, get_lote_por_op
 
 # FLASK_ENV=production nas variáveis de ambiente do host (Render/Railway) —
 # em desenvolvimento local, deixe sem definir (ou defina como "development")
-PRODUCAO = os.environ.get("FLASK_ENV") == "production"
+# O Render define RENDER=true sozinho em todo serviço. Considerar também essa
+# variável evita que as proteções de produção (cookie Secure, HSTS, SETUP_KEY)
+# fiquem desligadas só porque a FLASK_ENV foi digitada errada ou não pegou.
+PRODUCAO = os.environ.get("FLASK_ENV") == "production" or os.environ.get("RENDER") == "true"
 
 app = Flask(__name__)
 
