@@ -1,46 +1,58 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Chat IA — Sistema de Estoque{% endblock %}
 
 {% block content %}
-<div class="page" style="max-width: 720px;">
-  <div style="display:flex; align-items:flex-end; justify-content:space-between;">
+<div class="page" style="max-width: 860px;">
+  <div class="page__header">
     <div>
-      <div class="page__title">💬 Chat IA</div>
-      <div class="page__subtitle">Pergunte sobre seu estoque em linguagem natural</div>
+      <div class="page__eyebrow">Inteligência</div>
+      <h1 class="page__title">Chat IA</h1>
+      <p class="page__subtitle">Pergunte sobre o seu estoque em linguagem natural.</p>
     </div>
-    <form method="POST" action="{{ url_for('chat_limpar') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn-secondary" style="width:auto; padding: 8px 14px; font-size:13px;">Limpar conversa</button>
+    {% if historico %}
+    <form method="POST" action="{{ url_for('chat_limpar') }}" class="chat__clear">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn--sm">{{ icon('trash') }}<span>Limpar conversa</span></button>
     </form>
+    {% endif %}
   </div>
 
-  <div class="panel">
-    <div class="panel__body" style="padding: 20px; max-height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap: 12px;" id="chat-area">
+  <section class="panel chat">
+    <div class="chat__stream" id="chat-area">
       {% if not historico %}
-        <div class="panel__empty">
-          Nenhuma mensagem ainda. Tente perguntar "quais produtos estão acabando" ou "ajuda".
-        </div>
+      <div class="chat__empty">
+        <div class="chat__empty-icon">{{ icon('sparkles') }}</div>
+        <h2>Como posso ajudar?</h2>
+        <p>Escreva sua pergunta ou toque em uma sugestão.</p>
+        <form method="POST" class="chips">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="chip" name="mensagem" value="quais produtos estão acabando">Quais produtos estão acabando?</button>
+          <button type="submit" class="chip" name="mensagem" value="valor total do estoque">Valor total do estoque</button>
+          <button type="submit" class="chip" name="mensagem" value="vendas de hoje">Vendas de hoje</button>
+          <button type="submit" class="chip" name="mensagem" value="previsão de ruptura">Previsão de ruptura</button>
+          <button type="submit" class="chip" name="mensagem" value="ajuda">O que você faz?</button>
+        </form>
+      </div>
       {% endif %}
       {% for msg in historico %}
         {% if msg.autor == 'usuario' %}
-        <div style="align-self:flex-end; max-width:80%; background: var(--azul); color:#fff; padding:10px 14px; border-radius: 10px 10px 2px 10px; font-size:14px;">
-          {{ msg.texto }}
-        </div>
+        <div class="msg msg--user"><div class="msg__bubble">{{ msg.texto }}</div></div>
         {% else %}
-        <div style="align-self:flex-start; max-width:80%; background: var(--surface-alt); padding:10px 14px; border-radius: 10px 10px 10px 2px; font-size:14px; white-space:pre-wrap;">
-          {{ msg.texto }}
+        <div class="msg msg--ia">
+          <span class="msg__avatar">{{ icon('sparkles') }}</span>
+          <div class="msg__bubble">{{ msg.texto|chat_texto }}</div>
         </div>
         {% endif %}
       {% endfor %}
     </div>
 
-    <form method="POST" style="display:flex; gap:8px; padding: 16px 20px; border-top:1px solid var(--border);">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="mensagem" placeholder="Digite sua pergunta..." required autofocus
-             style="flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
-      <button type="submit" class="btn-primary" style="width:auto; padding: 10px 20px;">Enviar</button>
+    <form method="POST" class="chat__composer">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="mensagem" placeholder="Digite sua pergunta..." required autofocus maxlength="500" autocomplete="off" aria-label="Sua pergunta">
+      <button type="submit" class="btn btn--primary">{{ icon('arrow-right') }}<span>Enviar</span></button>
     </form>
-  </div>
+  </section>
 </div>
 
 <script nonce="{{ csp_nonce }}">

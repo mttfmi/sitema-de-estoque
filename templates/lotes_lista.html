@@ -1,62 +1,64 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Lotes — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
   <div class="page__header">
     <div>
-      <div class="page__title">Lotes</div>
-      <div class="page__subtitle">{{ lotes|length }} lote(s) encontrado(s)</div>
+      <div class="page__eyebrow">Estoque</div>
+      <h1 class="page__title">Lotes</h1>
+      <p class="page__subtitle">{{ lotes|length }} lote(s) encontrado(s)</p>
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel__body" style="padding: 20px;">
-      <form method="GET" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; align-items:end;">
-        <div class="field" style="margin-bottom:0;">
+  <section class="panel">
+    <div class="panel__body panel__body--pad">
+      <form method="GET" class="filters-form">
+        <div class="field">
           <label for="codigo">Código do lote</label>
           <input type="text" id="codigo" name="codigo" value="{{ filtros.codigo }}" placeholder="Ex: LOTE-20260906">
         </div>
-        <div class="field" style="margin-bottom:0;">
+        <div class="field">
           <label for="produto">Produto</label>
           <input type="text" id="produto" name="produto" value="{{ filtros.produto }}" placeholder="Nome do produto">
         </div>
-        <div class="field" style="margin-bottom:0;">
+        <div class="field">
           <label for="op_id">Nº da OP</label>
-          <input type="number" id="op_id" name="op_id" value="{{ filtros.op_id }}" placeholder="Ex: 12">
+          <input type="number" id="op_id" name="op_id" value="{{ filtros.op_id }}" placeholder="Ex: 12" inputmode="numeric">
         </div>
-        <div class="field" style="margin-bottom:0;">
+        <div class="field">
           <label for="data">Data de fabricação</label>
           <input type="text" id="data" name="data" value="{{ filtros.data }}" placeholder="Ex: 06/09/2026">
         </div>
-        <div class="filtros__acoes">
-          <button type="submit" class="btn-primary" style="width:auto; padding: 10px 18px;">Buscar</button>
-          <a href="{{ url_for('lotes_lista') }}" class="btn-secondary" style="width:auto; padding: 10px 18px; display:inline-flex; align-items:center; justify-content:center;">Limpar</a>
+        <div class="filters__actions">
+          <button type="submit" class="btn btn--primary" style="min-height:44px;">{{ icon('search') }}<span>Buscar</span></button>
+          <a href="{{ url_for('lotes_lista') }}" class="btn" style="min-height:44px;">Limpar</a>
         </div>
       </form>
     </div>
-  </div>
+  </section>
 
-  <div class="panel">
+  <section class="panel">
     <div class="panel__body">
       {% if lotes %}
-      <table>
+      <table class="table--cards">
         <thead>
           <tr><th>Código</th><th>Produto</th><th>Quantidade</th><th>Fabricado em</th><th>OP</th><th>Status</th></tr>
         </thead>
         <tbody>
           {% for l in lotes %}
           <tr>
-            <td class="mono">{{ l[1] }}</td>
-            <td>{{ l[3] }}</td>
-            <td class="mono">{{ l[4] }}</td>
-            <td class="mono">{{ l[5] }}</td>
-            <td>
+            <td class="mono td-title" data-label="Código">{{ l[1] }}</td>
+            <td class="td-strong" data-label="Produto">{{ l[3] }}</td>
+            <td class="mono" data-label="Quantidade">{{ l[4]|qtd }}</td>
+            <td class="mono muted" data-label="Fabricado em">{{ l[5] }}</td>
+            <td data-label="OP">
               {% if l[7] %}
-              <a href="{{ url_for('pcp_detalhe', op_id=l[7]) }}"><span class="tag tag--atencao">OP #{{ l[7] }}</span></a>
-              {% else %}—{% endif %}
+              <a class="tag tag--atencao" href="{{ url_for('pcp_detalhe', op_id=l[7]) }}">OP #{{ l[7] }}</a>
+              {% else %}<span class="muted">—</span>{% endif %}
             </td>
-            <td><span class="tag tag--ok">{{ l[8] }}</span></td>
+            <td data-label="Status"><span class="tag tag--ok">{{ l[8] }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -65,6 +67,6 @@
       <div class="panel__empty">Nenhum lote encontrado.</div>
       {% endif %}
     </div>
-  </div>
+  </section>
 </div>
 {% endblock %}

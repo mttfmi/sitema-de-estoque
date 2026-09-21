@@ -1,24 +1,30 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Histórico — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
-  <div class="page__title">Histórico de Movimentações</div>
-  <div class="page__subtitle">Últimas {{ logs|length }} movimentações registradas</div>
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Estoque</div>
+      <h1 class="page__title">Histórico de movimentações</h1>
+      <p class="page__subtitle">Últimas {{ logs|length }} movimentações registradas.</p>
+    </div>
+  </div>
 
-  <div class="panel">
+  <section class="panel">
     <div class="panel__body">
       {% if logs %}
-      <table>
+      <table class="table--cards">
         <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Produto</th><th>Quantidade</th></tr></thead>
         <tbody>
           {% for log in logs %}
           {% set log_id, data_hora, produto_nome, tipo, quantidade = log %}
           <tr>
-            <td class="mono">{{ data_hora }}</td>
-            <td>{{ tipo }}</td>
-            <td>{{ produto_nome }}</td>
-            <td class="mono">{{ quantidade }}</td>
+            <td class="mono muted" data-label="Data/Hora">{{ data_hora }}</td>
+            <td data-label="Tipo">{{ tipo }}</td>
+            <td class="td-strong" data-label="Produto">{{ produto_nome }}</td>
+            <td class="mono" data-label="Quantidade">{{ quantidade|qtd }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -27,6 +33,6 @@
       <div class="panel__empty">Nenhuma movimentação registrada ainda.</div>
       {% endif %}
     </div>
-  </div>
+  </section>
 </div>
 {% endblock %}

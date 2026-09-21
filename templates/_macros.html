@@ -1,0 +1,17 @@
+{# Ícone do conjunto _icons.html. Uso: {{ icon('package') }} #}
+{% macro icon(name, cls='') -%}
+<svg class="icon {{ cls }}" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+
+{# Marca (barras de código de barras) — mesma identidade do |||‖||| de sempre #}
+{% macro brand_mark() -%}
+<svg viewBox="0 0 24 16" aria-hidden="true" focusable="false"><g fill="currentColor"><rect x="0.5" width="2" height="16" rx="0.5"/><rect x="4.5" width="2" height="16" rx="0.5"/><rect x="8.5" width="1.5" height="16" rx="0.5"/><rect x="12" width="3" height="16" rx="0.5"/><rect x="17" width="1.5" height="16" rx="0.5"/><rect x="20.5" width="3" height="16" rx="0.5"/></g></svg>
+{%- endmacro %}
+
+{# Status de uma OP (usado na lista e no detalhe) #}
+{% macro op_status(op) -%}
+{%- if op[6] == 'Concluída' -%}<span class="tag tag--ok">Concluída</span>
+{%- elif op[6] == 'Cancelada' -%}<span class="tag">Cancelada</span>
+{%- elif op[9] -%}<span class="tag tag--critico">{{ op[6] }} · Em risco</span>
+{%- else -%}<span class="tag tag--atencao">{{ op[6] }}</span>{%- endif -%}
+{%- endmacro %}

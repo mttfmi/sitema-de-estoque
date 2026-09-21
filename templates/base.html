@@ -1,59 +1,102 @@
-<!DOCTYPE html>
+{% from "_macros.html" import icon, brand_mark %}<!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "_head.html" %}
   <title>{% block title %}Sistema de Estoque{% endblock %}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;650&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+  {% include "_icons.html" %}
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+
   {% if current_user.is_authenticated %}
-  <header class="topbar">
-    <div class="topbar__brand">
-      <span class="barcode">|||‖|||</span>
-      <span>Sistema de Estoque</span>
-    </div>
-    <nav class="topbar__nav">
-      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
-      <a href="{{ url_for('pdv') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pdv') }}">PDV</a>
-      <a href="{{ url_for('produtos') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('produto') }}">Produtos</a>
-      <a href="{{ url_for('ficha_tecnica_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('ficha_tecnica') }}">Ficha Técnica</a>
-      <a href="{{ url_for('pcp_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pcp') }}">PCP (OPs)</a>
-      <a href="{{ url_for('lotes_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('lotes') }}">Lotes</a>
-      <a href="{{ url_for('historico') }}" class="{{ 'active' if request.endpoint == 'historico' }}">Histórico</a>
-      <a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('chat') }}">Chat IA</a>
-      <a href="{{ url_for('busca') }}" class="{{ 'active' if request.endpoint == 'busca' }}">Busca IA</a>
-      {% if current_user.nivel_acesso == 'administrador' %}
-      <a href="{{ url_for('usuarios') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('usuario') }}">Usuários</a>
-      {% endif %}
-    </nav>
-    <div class="topbar__user">
-      <span class="badge">{{ '👑 ADMIN' if current_user.nivel_acesso == 'administrador' else '👤 OPERADOR' }}</span>
-      <a href="{{ url_for('conta_senha') }}" title="Trocar minha senha">{{ current_user.nome_completo }}</a>
-      <form method="POST" action="{{ url_for('logout') }}" style="display:inline; margin:0;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-logout">Sair</button>
-      </form>
-    </div>
-  </header>
-  {% endif %}
+  {% set ep = request.endpoint or '' %}
+  {% set nome = current_user.nome_completo or current_user.usuario %}
+  {% set partes = nome.split() %}
+  {% set iniciais = ((partes[0][:1] ~ (partes[1][:1] if partes|length > 1 else '')) if partes else '?')|upper %}
+  {% set eh_admin = current_user.nivel_acesso == 'administrador' %}
 
-  <main>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="page" style="padding-bottom: 0;">
-          {% for categoria, msg in messages %}
-            <div class="flash flash--{{ categoria }}">{{ msg }}</div>
-          {% endfor %}
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+      <button type="button" class="btn btn--icon sidebar__close" data-nav-close aria-label="Fechar menu">{{ icon('close') }}</button>
+
+      <a class="brand" href="{{ url_for('dashboard') }}" aria-label="Estoque e PDV — ir para o dashboard">
+        <span class="brand__mark">{{ brand_mark() }}</span>
+        <span>
+          <span class="brand__name">Estoque &amp; PDV</span>
+          <span class="brand__tag">PCP · Produção</span>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="Seções">
+        <div class="nav__group">Visão geral</div>
+        <a class="nav__link{{ ' active' if ep == 'dashboard' }}" href="{{ url_for('dashboard') }}" aria-current="{{ 'page' if ep == 'dashboard' else 'false' }}">{{ icon('dashboard') }}<span>Dashboard</span></a>
+        <a class="nav__link{{ ' active' if ep.startswith('pdv') }}" href="{{ url_for('pdv') }}" aria-current="{{ 'page' if ep.startswith('pdv') else 'false' }}">{{ icon('cart') }}<span>PDV</span></a>
+
+        <div class="nav__group">Estoque</div>
+        <a class="nav__link{{ ' active' if ep.startswith('produto') }}" href="{{ url_for('produtos') }}" aria-current="{{ 'page' if ep.startswith('produto') else 'false' }}">{{ icon('package') }}<span>Produtos</span></a>
+        <a class="nav__link{{ ' active' if ep.startswith('lotes') }}" href="{{ url_for('lotes_lista') }}" aria-current="{{ 'page' if ep.startswith('lotes') else 'false' }}">{{ icon('layers') }}<span>Lotes</span></a>
+        <a class="nav__link{{ ' active' if ep == 'historico' }}" href="{{ url_for('historico') }}" aria-current="{{ 'page' if ep == 'historico' else 'false' }}">{{ icon('history') }}<span>Histórico</span></a>
+
+        <div class="nav__group">Produção</div>
+        <a class="nav__link{{ ' active' if ep.startswith('ficha_tecnica') }}" href="{{ url_for('ficha_tecnica_lista') }}" aria-current="{{ 'page' if ep.startswith('ficha_tecnica') else 'false' }}">{{ icon('clipboard') }}<span>Ficha Técnica</span></a>
+        <a class="nav__link{{ ' active' if ep.startswith('pcp') }}" href="{{ url_for('pcp_lista') }}" aria-current="{{ 'page' if ep.startswith('pcp') else 'false' }}">{{ icon('factory') }}<span>PCP (OPs)</span></a>
+
+        <div class="nav__group">Inteligência</div>
+        <a class="nav__link{{ ' active' if ep.startswith('chat') }}" href="{{ url_for('chat') }}" aria-current="{{ 'page' if ep.startswith('chat') else 'false' }}">{{ icon('chat') }}<span>Chat IA</span></a>
+        <a class="nav__link{{ ' active' if ep == 'busca' }}" href="{{ url_for('busca') }}" aria-current="{{ 'page' if ep == 'busca' else 'false' }}">{{ icon('sparkles') }}<span>Busca IA</span></a>
+
+        {% if eh_admin %}
+        <div class="nav__group">Administração</div>
+        <a class="nav__link{{ ' active' if ep.startswith('usuario') }}" href="{{ url_for('usuarios') }}" aria-current="{{ 'page' if ep.startswith('usuario') else 'false' }}">{{ icon('users') }}<span>Usuários</span></a>
+        {% endif %}
+      </nav>
+
+      <div class="usercard">
+        <span class="usercard__avatar" aria-hidden="true">{{ iniciais }}</span>
+        <span class="usercard__name">{{ nome }}</span>
+        <span class="usercard__role">{{ 'Administrador' if eh_admin else 'Operador' }}</span>
+        <div class="usercard__actions">
+          <a class="btn btn--sm" href="{{ url_for('conta_senha') }}" title="Trocar minha senha">{{ icon('key') }}<span>Senha</span></a>
+          <form method="POST" action="{{ url_for('logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn--sm btn--danger">{{ icon('logout') }}<span>Sair</span></button>
+          </form>
         </div>
-      {% endif %}
-    {% endwith %}
+      </div>
+    </aside>
 
-    {% block content %}{% endblock %}
-  </main>
+    <div class="main">
+      <header class="mobilebar">
+        <button type="button" class="btn btn--icon" data-nav-toggle aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">{{ icon('menu') }}</button>
+        <a class="brand" href="{{ url_for('dashboard') }}">
+          <span class="brand__mark">{{ brand_mark() }}</span>
+          <span class="brand__name">Estoque &amp; PDV</span>
+        </a>
+        <span class="mobilebar__avatar" aria-hidden="true">{{ iniciais }}</span>
+      </header>
+
+      <main id="conteudo">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="flashes">
+            {% for categoria, msg in messages %}
+            <div class="flash flash--{{ categoria }}" role="{{ 'alert' if categoria == 'erro' else 'status' }}">
+              {{ icon('check-circle' if categoria == 'sucesso' else ('alert-circle' if categoria == 'erro' else 'info')) }}
+              <span class="flash__text">{{ msg }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <div class="scrim" data-nav-close></div>
+  {% else %}
+  <main id="conteudo">{% block content_public %}{% endblock %}</main>
+  {% endif %}
 
   <!-- Confirmação de ações destrutivas: o texto vem num atributo data-confirm
        (que o Jinja escapa corretamente) e NUNCA é montado dentro de código
@@ -64,6 +107,25 @@
       var mensagem = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-confirm');
       if (mensagem && !window.confirm(mensagem)) ev.preventDefault();
     });
+
+    // Menu lateral no celular (abre/fecha; Esc e toque fora também fecham)
+    (function () {
+      var corpo = document.body;
+      var alternar = document.querySelector('[data-nav-toggle]');
+      function definir(aberto) {
+        corpo.classList.toggle('nav-open', aberto);
+        if (alternar) {
+          alternar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+          alternar.setAttribute('aria-label', aberto ? 'Fechar menu' : 'Abrir menu');
+        }
+      }
+      if (alternar) alternar.addEventListener('click', function () { definir(!corpo.classList.contains('nav-open')); });
+      document.querySelectorAll('[data-nav-close]').forEach(function (el) {
+        el.addEventListener('click', function () { definir(false); });
+      });
+      document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') definir(false); });
+      window.matchMedia('(min-width: 1024px)').addEventListener('change', function (e) { if (e.matches) definir(false); });
+    })();
   </script>
 </body>
 </html>

@@ -1,38 +1,48 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Busca IA — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
-  <div class="page__title">🔍 Busca IA</div>
-  <div class="page__subtitle">Busca semântica — encontra produtos mesmo sem digitar o nome exato</div>
-
-  <div class="panel">
-    <div class="panel__body" style="padding: 20px;">
-      <form method="POST" style="display:flex; gap:8px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="termo" value="{{ termo }}" placeholder="Ex: algo pra limpar tela, mouse sem fio..." required autofocus
-               style="flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
-        <button type="submit" class="btn-primary" style="width:auto; padding: 10px 20px;">Buscar</button>
-      </form>
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Inteligência</div>
+      <h1 class="page__title">Busca IA</h1>
+      <p class="page__subtitle">Busca semântica: encontra produtos mesmo sem digitar o nome exato.</p>
     </div>
   </div>
 
+  <section class="panel">
+    <div class="panel__body panel__body--pad">
+      <form method="POST" class="input-group">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="termo" value="{{ termo }}" placeholder="Ex: algo pra limpar tela, mouse sem fio..." required autofocus maxlength="200" aria-label="O que você procura?">
+        <button type="submit" class="btn btn--primary" style="min-height:44px;">{{ icon('sparkles') }}<span>Buscar</span></button>
+      </form>
+    </div>
+  </section>
+
   {% if termo %}
-  <div class="panel">
-    <div class="panel__header">Resultados para "{{ termo }}"</div>
+  <section class="panel">
+    <div class="panel__header"><h2 class="panel__title">{{ icon('search') }}Resultados para “{{ termo }}”</h2></div>
     <div class="panel__body">
       {% if resultados %}
-      <table>
+      <table class="table--cards">
         <thead><tr><th>Produto</th><th>Código</th><th>Preço</th><th>Estoque</th><th>Relevância</th></tr></thead>
         <tbody>
           {% for r in resultados %}
           {% set p = r.produto %}
           <tr>
-            <td>{{ p[2] }}</td>
-            <td class="mono">{{ p[1] or 'S/C' }}</td>
-            <td class="mono">R$ {{ "%.2f"|format(p[4] or 0.0) }}</td>
-            <td class="mono">{{ p[5] or 0 }} un</td>
-            <td><span class="tag tag--ok">{{ r.confianca }}%</span></td>
+            <td class="td-strong td-title" data-label="Produto">{{ p[2] }}</td>
+            <td class="mono muted" data-label="Código">{{ p[1] or 'S/C' }}</td>
+            <td class="mono" data-label="Preço">R$ {{ (p[4] or 0.0)|brl }}</td>
+            <td class="mono" data-label="Estoque">{{ p[5]|qtd }} un</td>
+            <td data-label="Relevância">
+              <div class="stock-cell">
+                <span class="stock-cell__num">{{ r.confianca|string|replace('.', ',') }}%</span>
+                <div class="meter" style="--pct: {{ [r.confianca, 100]|min|round|int }}%" aria-hidden="true"><i></i></div>
+              </div>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -41,7 +51,7 @@
       <div class="panel__empty">Nenhum produto encontrado para essa busca.</div>
       {% endif %}
     </div>
-  </div>
+  </section>
   {% endif %}
 </div>
 {% endblock %}

@@ -1,87 +1,88 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ 'Editar' if modo == 'editar' else 'Novo' }} Produto — Sistema de Estoque{% endblock %}
 
 {% block content %}
-<div class="page" style="max-width: 560px;">
-  <div class="page__title">{{ 'Editar Produto' if modo == 'editar' else 'Novo Produto' }}</div>
-  <div class="page__subtitle">
-    {{ 'Atualize as informações do produto' if modo == 'editar' else 'Preencha os dados ou escaneie o código de barras' }}
+<div class="page page--narrow">
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Estoque · <a href="{{ url_for('produtos') }}" style="text-decoration:underline; text-underline-offset:3px;">todos os produtos</a></div>
+      <h1 class="page__title">{{ 'Editar produto' if modo == 'editar' else 'Novo produto' }}</h1>
+      <p class="page__subtitle">
+        {{ 'Atualize as informações do produto.' if modo == 'editar' else 'Preencha os dados ou escaneie o código de barras.' }}
+      </p>
+    </div>
   </div>
 
-  <div class="panel">
-    <div class="panel__body" style="padding: 24px;">
+  <section class="panel">
+    <div class="panel__body panel__body--pad">
       <form method="POST">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="field">
           <label for="codigo">Código de barras</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="codigo" name="codigo" placeholder="Ex: 7891000100103"
-                   value="{{ produto[1] if produto else (codigo_prepreenchido or '') }}" style="flex: 1;">
-            <button type="button" id="btn-escanear" class="btn-secondary">📷 Escanear</button>
+          <div class="input-group">
+            <input type="text" id="codigo" name="codigo" placeholder="Ex: 7891000100103" maxlength="64"
+                   value="{{ (produto[1] or '') if produto else (codigo_prepreenchido or '') }}">
+            <button type="button" id="btn-escanear" class="btn" style="min-height:44px;">{{ icon('scan') }}<span>Escanear</span></button>
           </div>
         </div>
 
         <!-- Área da câmera: só aparece quando o usuário clica em "Escanear" -->
-        <div id="scanner-wrap" style="display:none; margin: 4px 0 18px;">
-          <div id="scanner-reader" style="width:100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position:relative; background:#000;">
-            <video id="video-scanner" autoplay muted playsinline style="width:100%; display:block;"></video>
+        <div id="scanner-wrap" style="display:none; margin: 2px 0 20px;">
+          <div id="scanner-reader" class="scanner">
+            <video id="video-scanner" autoplay muted playsinline></video>
             <div class="scanner-guia"></div>
           </div>
-          <div id="scanner-status" class="page__subtitle" style="margin: 8px 0 0; text-align:center;">
-            Aponte a câmera para o código de barras...
-          </div>
+          <div id="scanner-status" class="scanner-status">Aponte a câmera para o código de barras...</div>
           <!-- Reconhecimento genérico de objeto (roda no navegador, não no servidor) —
                ajuda a confirmar visualmente que há um produto no quadro. Não identifica
                qual produto específico é, só a categoria geral (ex: "garrafa", "caixa"). -->
-          <div id="scanner-objeto" style="margin: 6px 0 0; text-align:center; font-size:13px; color: var(--azul-hover);"></div>
-          <button type="button" id="btn-cancelar-scanner" class="btn-secondary" style="width:100%; margin-top:8px;">
-            Cancelar
-          </button>
+          <div id="scanner-objeto" class="scanner-objeto"></div>
+          <button type="button" id="btn-cancelar-scanner" class="btn btn--block" style="margin-top:12px;">Cancelar</button>
         </div>
 
         <div class="field">
           <label for="nome">Nome do produto *</label>
-          <input type="text" id="nome" name="nome" required autofocus
+          <input type="text" id="nome" name="nome" required autofocus maxlength="200"
                  value="{{ produto[2] if produto else (nome_prepreenchido or '') }}">
         </div>
 
         <div class="field">
           <label for="descricao">Descrição</label>
-          <input type="text" id="descricao" name="descricao" placeholder="Ex: mouse gamer RGB 6 botões"
-                 value="{{ produto[3] if produto else '' }}">
+          <input type="text" id="descricao" name="descricao" placeholder="Ex: mouse gamer RGB 6 botões" maxlength="500"
+                 value="{{ (produto[3] or '') if produto else '' }}">
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-grid">
           <div class="field">
             <label for="preco">Preço (R$)</label>
-            <input type="number" id="preco" name="preco" step="0.01" min="0"
-                   value="{{ produto[4] if produto else 0 }}">
+            <input type="number" id="preco" name="preco" step="0.01" min="0" inputmode="decimal"
+                   value="{{ (produto[4] or 0) if produto else 0 }}">
           </div>
           <div class="field">
             <label for="quantidade">Quantidade em estoque</label>
-            <input type="number" id="quantidade" name="quantidade" min="0"
-                   value="{{ produto[5] if produto else 0 }}">
+            <input type="number" id="quantidade" name="quantidade" min="0" step="any" inputmode="decimal"
+                   value="{{ (produto[5]|qtd) if produto else 0 }}">
           </div>
         </div>
 
         <div class="field">
           <label for="estoque_minimo">Estoque mínimo (alerta de reposição)</label>
-          <input type="number" id="estoque_minimo" name="estoque_minimo" min="0"
-                 value="{{ produto[6] if produto else 5 }}">
+          <input type="number" id="estoque_minimo" name="estoque_minimo" min="0" inputmode="numeric"
+                 value="{{ produto[6] if (produto and produto[6] is not none) else 5 }}">
+          <p class="field__hint">Abaixo desse número o produto aparece como crítico no dashboard.</p>
         </div>
 
-        <div style="display:flex; gap: 10px; margin-top: 10px;">
-          <button type="submit" class="btn-primary">
-            {{ '💾 Salvar Alterações' if modo == 'editar' else '✅ Cadastrar Produto' }}
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--lg">
+            {{ icon('check') }}<span>{{ 'Salvar alterações' if modo == 'editar' else 'Cadastrar produto' }}</span>
           </button>
-          <a href="{{ url_for('produtos') }}" style="flex-shrink:0;">
-            <button type="button" class="btn-secondary">Cancelar</button>
-          </a>
+          <a class="btn btn--lg" href="{{ url_for('produtos') }}">Cancelar</a>
         </div>
       </form>
     </div>
-  </div>
+  </section>
 </div>
 
 <!-- Polyfill do BarcodeDetector (API nativa do navegador, roda em

@@ -1,85 +1,89 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}PDV — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
-  <div class="page__title">Frente de Caixa (PDV)</div>
-  <div class="page__subtitle">Selecione produtos e finalize a venda</div>
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Vendas</div>
+      <h1 class="page__title">Frente de caixa</h1>
+      <p class="page__subtitle">Selecione os produtos e finalize a venda.</p>
+    </div>
+  </div>
 
-  <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start;">
+  <div class="pdv">
 
-    <!-- Coluna esquerda: seleção de produto -->
-    <div class="panel">
-      <div class="panel__header">Adicionar produto</div>
-      <div class="panel__body" style="padding: 20px;">
+    <!-- Seleção de produto -->
+    <section class="panel">
+      <div class="panel__header"><h2 class="panel__title">{{ icon('plus') }}Adicionar produto</h2></div>
+      <div class="panel__body panel__body--pad">
         <form method="POST" action="{{ url_for('pdv_adicionar') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="field">
             <label for="produto_id">Produto</label>
-            <select id="produto_id" name="produto_id" required
-                    style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
+            <select id="produto_id" name="produto_id" required>
               <option value="" disabled selected>Selecione um produto...</option>
               {% for p in produtos %}
-              <option value="{{ p[0] }}">{{ p[2] }} — R$ {{ "%.2f"|format(p[4] or 0.0) }} ({{ p[5] or 0 }} un disponíveis)</option>
+              <option value="{{ p[0] }}">{{ p[2] }} — R$ {{ (p[4] or 0.0)|brl }} ({{ p[5]|qtd }} un disponíveis)</option>
               {% endfor %}
             </select>
           </div>
           <div class="field">
             <label for="quantidade">Quantidade</label>
-            <input type="number" id="quantidade" name="quantidade" min="1" value="1" required>
+            <input type="number" id="quantidade" name="quantidade" min="1" value="1" required inputmode="numeric">
           </div>
-          <button type="submit" class="btn-primary">+ Adicionar ao carrinho</button>
+          <button type="submit" class="btn btn--primary btn--lg btn--block">{{ icon('cart') }}<span>Adicionar ao carrinho</span></button>
         </form>
       </div>
-    </div>
+    </section>
 
-    <!-- Coluna direita: carrinho -->
-    <div class="panel">
-      <div class="panel__header">🛒 Carrinho</div>
-      <div class="panel__body">
-        {% if carrinho %}
-        <table>
-          <thead><tr><th>Produto</th><th>Qtd</th><th>Subtotal</th><th></th></tr></thead>
-          <tbody>
-            {% for item in carrinho %}
-            <tr>
-              <td>{{ item.nome }}</td>
-              <td class="mono">{{ item.qtd }}</td>
-              <td class="mono">R$ {{ "%.2f"|format(item.subtotal) }}</td>
-              <td>
-                <form method="POST" action="{{ url_for('pdv_remover', indice=loop.index0) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn-icon" title="Remover">✕</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <div style="padding: 16px 20px; border-top: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-weight:600;">Total</span>
-          <span class="mono" style="font-size:20px; font-weight:600;">R$ {{ "%.2f"|format(total) }}</span>
+    <!-- Carrinho (recibo) -->
+    <div class="pdv__cart">
+      {% if carrinho %}
+      <div class="receipt">
+        <div class="receipt__head">
+          <h2 class="panel__title">{{ icon('receipt') }}Carrinho</h2>
+          <span class="tag tag--info">{{ carrinho|length }} {{ 'item' if carrinho|length == 1 else 'itens' }}</span>
         </div>
-        <form method="POST" action="{{ url_for('pdv_finalizar') }}" style="padding: 0 20px 20px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="field">
-            <label for="forma_pagamento">Forma de pagamento</label>
-            <select id="forma_pagamento" name="forma_pagamento"
-                    style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:#101010; color:var(--text); font-size:14px;">
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="PIX">PIX</option>
-              <option value="Cartão de Débito">Cartão de Débito</option>
-              <option value="Cartão de Crédito">Cartão de Crédito</option>
-            </select>
-          </div>
-          <button type="submit" class="btn-primary" style="background: var(--verde);">
-            ✅ Finalizar Venda
-          </button>
-        </form>
-        {% else %}
-        <div class="panel__empty">Carrinho vazio. Adicione produtos ao lado.</div>
-        {% endif %}
+        <ul class="receipt__items">
+          {% for item in carrinho %}
+          <li class="receipt__item">
+            <span class="receipt__name">{{ item.nome }}</span>
+            <span class="receipt__sub">R$ {{ item.subtotal|brl }}</span>
+            <form class="receipt__remove" method="POST" action="{{ url_for('pdv_remover', indice=loop.index0) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn--icon btn--danger" title="Remover" aria-label="Remover {{ item.nome }}">{{ icon('close') }}</button>
+            </form>
+            <span class="receipt__qty">{{ item.qtd|qtd }} × R$ {{ item.preco|brl }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="receipt__total">
+          <span>Total</span>
+          <strong>R$ {{ total|brl }}</strong>
+        </div>
       </div>
+
+      <form method="POST" action="{{ url_for('pdv_finalizar') }}" class="panel">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="panel__header"><h2 class="panel__title">{{ icon('banknote') }}Forma de pagamento</h2></div>
+        <div class="panel__body panel__body--pad">
+          <div class="segmented" role="radiogroup" aria-label="Forma de pagamento" style="margin-bottom:18px;">
+            <label><input type="radio" name="forma_pagamento" value="Dinheiro" checked><span>Dinheiro</span></label>
+            <label><input type="radio" name="forma_pagamento" value="PIX"><span>PIX</span></label>
+            <label><input type="radio" name="forma_pagamento" value="Cartão de Débito"><span>Débito</span></label>
+            <label><input type="radio" name="forma_pagamento" value="Cartão de Crédito"><span>Crédito</span></label>
+          </div>
+          <button type="submit" class="btn btn--success btn--lg btn--block">{{ icon('check') }}<span>Finalizar venda</span></button>
+        </div>
+      </form>
+      {% else %}
+      <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">{{ icon('receipt') }}Carrinho</h2></div>
+        <div class="panel__empty">Carrinho vazio. Adicione produtos ao lado.</div>
+      </section>
+      {% endif %}
     </div>
 
   </div>

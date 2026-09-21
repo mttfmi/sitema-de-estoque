@@ -1,6 +1,7 @@
 import hmac
 import io
 import os
+import re
 import secrets
 from datetime import timedelta
 
@@ -16,6 +17,7 @@ from flask_login import (
     login_required, current_user
 )
 from flask_wtf.csrf import CSRFProtect
+from markupsafe import Markup, escape
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from core.database import (
@@ -101,6 +103,42 @@ app.config.update(
 # página que faz o navegador da vítima excluir produtos/usuários sem ela
 # perceber, aproveitando a sessão já autenticada.
 csrf = CSRFProtect(app)
+
+
+@app.template_filter("brl")
+def _formatar_brl(valor):
+    """1234.5 -> '1.234,50' (padrão brasileiro de moeda)."""
+    try:
+        return f"{float(valor or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "0,00"
+
+
+@app.template_filter("qtd")
+def _formatar_quantidade(valor):
+    """12.0 -> '12'; 2.5 -> '2,5' (a coluna de estoque é REAL, então vinha '12.0')."""
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        return "0"
+    if numero == int(numero):
+        return str(int(numero))
+    return f"{numero:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+_RE_NEGRITO = re.compile(r"\*\*(.+?)\*\*")
+_RE_CODIGO = re.compile(r"`([^`\n]+)`")
+
+
+@app.template_filter("chat_texto")
+def _formatar_texto_chat(texto):
+    """Mostra **negrito** e `código` das respostas do chat como formatação.
+    O texto é ESCAPADO primeiro e só depois recebe tags fixas — nomes de
+    produto com <, > ou aspas nunca viram HTML."""
+    seguro = str(escape(texto or ""))
+    seguro = _RE_NEGRITO.sub(r"<strong>\1</strong>", seguro)
+    seguro = _RE_CODIGO.sub(r"<code>\1</code>", seguro)
+    return Markup(seguro)
 
 
 @app.before_request

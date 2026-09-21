@@ -1,13 +1,19 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ 'Editar' if modo == 'editar' else 'Nova' }} Ficha Técnica — Sistema de Estoque{% endblock %}
 
 {% block content %}
-<div class="page" style="max-width: 720px;">
-  <div class="page__title">{{ 'Editar Ficha Técnica' if modo == 'editar' else 'Nova Ficha Técnica' }}</div>
-  <div class="page__subtitle">Defina os insumos e quantidades necessárias para fabricar o produto</div>
+<div class="page" style="max-width: 860px;">
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Produção · <a href="{{ url_for('ficha_tecnica_lista') }}" style="text-decoration:underline; text-underline-offset:3px;">todas as fichas</a></div>
+      <h1 class="page__title">{{ 'Editar ficha técnica' if modo == 'editar' else 'Nova ficha técnica' }}</h1>
+      <p class="page__subtitle">Defina os insumos e as quantidades necessárias para fabricar o produto.</p>
+    </div>
+  </div>
 
-  <div class="panel">
-    <div class="panel__body" style="padding: 24px;">
+  <section class="panel">
+    <div class="panel__body panel__body--pad">
       <form method="POST" id="form-ficha">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -28,68 +34,68 @@
 
         <div class="field">
           <label>Insumos necessários</label>
-          <table id="tabela-itens">
-            <thead>
-              <tr><th>Insumo</th><th style="width:110px;">Quantidade</th><th style="width:100px;">Unidade</th><th></th></tr>
-            </thead>
-            <tbody id="itens-body">
-              {% for item in itens %}
-              <tr>
-                <td>
-                  <select name="insumo_id[]" required>
-                    {% for i in insumos %}
-                    <option value="{{ i[0] }}" {{ 'selected' if i[0] == item[1] }}>{{ i[2] }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td><input type="number" step="0.0001" min="0.0001" name="quantidade[]" value="{{ item[3] }}" required></td>
-                <td>
-                  <select name="unidade[]">
-                    {% for u in ['kg','g','l','ml','un'] %}
-                    <option value="{{ u }}" {{ 'selected' if u == item[4] }}>{{ u }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td><button type="button" class="btn-icon btn-remover-item" title="Remover">✕</button></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          <button type="button" id="btn-add-item" class="btn-secondary" style="margin-top:10px;">+ Adicionar insumo</button>
+          <div class="table-wrap">
+            <table id="tabela-itens" class="table--cards table--remove-corner">
+              <thead>
+                <tr><th>Insumo</th><th style="width:150px;">Quantidade</th><th style="width:120px;">Unidade</th><th style="width:60px;"></th></tr>
+              </thead>
+              <tbody id="itens-body">
+                {% for item in itens %}
+                <tr>
+                  <td data-label="Insumo">
+                    <select name="insumo_id[]" required aria-label="Insumo">
+                      {% for i in insumos %}
+                      <option value="{{ i[0] }}" {{ 'selected' if i[0] == item[1] }}>{{ i[2] }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td data-label="Quantidade"><input type="number" step="0.0001" min="0.0001" name="quantidade[]" value="{{ item[3] }}" required inputmode="decimal" aria-label="Quantidade"></td>
+                  <td data-label="Unidade">
+                    <select name="unidade[]" aria-label="Unidade">
+                      {% for u in ['kg','g','l','ml','un'] %}
+                      <option value="{{ u }}" {{ 'selected' if u == item[4] }}>{{ u }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td class="td-actions" data-label=""><button type="button" class="btn btn--icon btn--danger btn-remover-item" title="Remover" aria-label="Remover insumo">{{ icon('close') }}</button></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" id="btn-add-item" class="btn" style="margin-top:12px;">{{ icon('plus') }}<span>Adicionar insumo</span></button>
         </div>
 
-        <div style="display:flex; gap: 10px; margin-top: 18px;">
-          <button type="submit" class="btn-primary">
-            {{ '💾 Salvar Alterações' if modo == 'editar' else '✅ Cadastrar Ficha Técnica' }}
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--lg">
+            {{ icon('check') }}<span>{{ 'Salvar alterações' if modo == 'editar' else 'Cadastrar ficha técnica' }}</span>
           </button>
-          <a href="{{ url_for('ficha_tecnica_lista') }}" style="flex-shrink:0;">
-            <button type="button" class="btn-secondary">Cancelar</button>
-          </a>
+          <a class="btn btn--lg" href="{{ url_for('ficha_tecnica_lista') }}">Cancelar</a>
         </div>
       </form>
     </div>
-  </div>
+  </section>
 </div>
 
 <template id="template-linha-item">
   <tr>
-    <td>
-      <select name="insumo_id[]" required>
+    <td data-label="Insumo">
+      <select name="insumo_id[]" required aria-label="Insumo">
         <option value="" disabled selected>Selecione...</option>
         {% for i in insumos %}
         <option value="{{ i[0] }}">{{ i[2] }}</option>
         {% endfor %}
       </select>
     </td>
-    <td><input type="number" step="0.0001" min="0.0001" name="quantidade[]" required></td>
-    <td>
-      <select name="unidade[]">
+    <td data-label="Quantidade"><input type="number" step="0.0001" min="0.0001" name="quantidade[]" required inputmode="decimal" aria-label="Quantidade"></td>
+    <td data-label="Unidade">
+      <select name="unidade[]" aria-label="Unidade">
         {% for u in ['kg','g','l','ml','un'] %}
         <option value="{{ u }}">{{ u }}</option>
         {% endfor %}
       </select>
     </td>
-    <td><button type="button" class="btn-icon btn-remover-item" title="Remover">✕</button></td>
+    <td class="td-actions" data-label=""><button type="button" class="btn btn--icon btn--danger btn-remover-item" title="Remover" aria-label="Remover insumo">{{ icon('close') }}</button></td>
   </tr>
 </template>
 
@@ -103,9 +109,9 @@
   });
 
   itensBody.addEventListener('click', (ev) => {
-    if (ev.target.classList.contains('btn-remover-item')) {
-      ev.target.closest('tr').remove();
-    }
+    // closest(): o clique pode cair no ícone SVG dentro do botão, não no botão em si
+    const botao = ev.target.closest('.btn-remover-item');
+    if (botao) botao.closest('tr').remove();
   });
 
   document.getElementById('form-ficha').addEventListener('submit', (ev) => {

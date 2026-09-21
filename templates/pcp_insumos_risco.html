@@ -1,32 +1,36 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Insumos em Risco — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
   <div class="page__header">
     <div>
-      <div class="page__title">Insumos para OPs em Risco</div>
-      <div class="page__subtitle">Insumos com estoque insuficiente para atender às OPs abertas (Planejadas / Em Andamento)</div>
+      <div class="page__eyebrow">Produção</div>
+      <h1 class="page__title">Insumos para OPs em risco</h1>
+      <p class="page__subtitle">Insumos com estoque insuficiente para atender às OPs abertas (Planejadas e Em andamento).</p>
     </div>
   </div>
 
-  <div class="panel">
+  <section class="panel">
     <div class="panel__body">
       {% if insumos %}
-      <table>
+      <table class="table--cards">
         <thead>
           <tr><th>Insumo</th><th>Necessário (OPs abertas)</th><th>Disponível</th><th>OPs afetadas</th></tr>
         </thead>
         <tbody>
           {% for i in insumos %}
           <tr>
-            <td>{{ i.nome }}</td>
-            <td class="mono">{{ "%.3f"|format(i.necessario) }} {{ i.unidade }}</td>
-            <td class="mono">{{ "%.3f"|format(i.disponivel) }} {{ i.unidade }}</td>
-            <td>
+            <td class="td-strong td-title" data-label="Insumo">{{ i.nome }}</td>
+            <td class="mono" data-label="Necessário">{{ "%.3f"|format(i.necessario) }} {{ i.unidade }}</td>
+            <td class="mono" data-label="Disponível">{{ "%.3f"|format(i.disponivel) }} {{ i.unidade }}</td>
+            <td data-label="OPs afetadas">
+              <span style="display:inline-flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;">
               {% for op_id in i.ops %}
-              <a href="{{ url_for('pcp_detalhe', op_id=op_id) }}"><span class="tag tag--critico">OP #{{ op_id }}</span></a>
+              <a class="tag tag--critico" href="{{ url_for('pcp_detalhe', op_id=op_id) }}">OP #{{ op_id }}</a>
               {% endfor %}
+              </span>
             </td>
           </tr>
           {% endfor %}
@@ -36,6 +40,6 @@
       <div class="panel__empty">Nenhum insumo em risco no momento.</div>
       {% endif %}
     </div>
-  </div>
+  </section>
 </div>
 {% endblock %}

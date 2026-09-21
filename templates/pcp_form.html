@@ -1,15 +1,21 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Nova OP — Sistema de Estoque{% endblock %}
 
 {% block content %}
-<div class="page" style="max-width: 560px;">
-  <div class="page__title">Nova Ordem de Produção</div>
-  <div class="page__subtitle">Selecione o produto e a quantidade a produzir</div>
+<div class="page page--narrow">
+  <div class="page__header">
+    <div>
+      <div class="page__eyebrow">Produção</div>
+      <h1 class="page__title">Nova ordem de produção</h1>
+      <p class="page__subtitle">Selecione o produto e a quantidade a produzir.</p>
+    </div>
+  </div>
 
-  <div class="panel">
-    <div class="panel__body" style="padding: 24px;">
+  <section class="panel">
+    <div class="panel__body panel__body--pad">
       {% if not produtos %}
-      <div class="panel__empty">
+      <div class="panel__empty" style="padding: 8px 0 10px;">
         Nenhum produto com Ficha Técnica cadastrada.
         <a href="{{ url_for('ficha_tecnica_nova') }}">Cadastre uma ficha técnica</a> antes de criar uma OP.
       </div>
@@ -27,30 +33,29 @@
           </select>
         </div>
 
-        <div class="field">
-          <label for="quantidade">Quantidade planejada</label>
-          <input type="number" id="quantidade" name="quantidade" step="0.0001" min="0.0001" required>
-        </div>
-
-        <div class="field">
-          <label for="data_prevista">Data prevista</label>
-          <input type="text" id="data_prevista" name="data_prevista" placeholder="Ex: 15/09/2026">
+        <div class="form-grid">
+          <div class="field">
+            <label for="quantidade">Quantidade planejada</label>
+            <input type="number" id="quantidade" name="quantidade" step="0.0001" min="0.0001" required inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="data_prevista">Data prevista</label>
+            <input type="text" id="data_prevista" name="data_prevista" placeholder="Ex: 15/09/2026" maxlength="32">
+          </div>
         </div>
 
         <div class="field">
           <label for="observacao">Observação</label>
-          <input type="text" id="observacao" name="observacao" placeholder="Opcional">
+          <input type="text" id="observacao" name="observacao" placeholder="Opcional" maxlength="500">
         </div>
 
-        <div style="display:flex; gap: 10px; margin-top: 10px;">
-          <button type="submit" class="btn-primary">✅ Criar OP</button>
-          <a href="{{ url_for('pcp_lista') }}" style="flex-shrink:0;">
-            <button type="button" class="btn-secondary">Cancelar</button>
-          </a>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--lg">{{ icon('check') }}<span>Criar OP</span></button>
+          <a class="btn btn--lg" href="{{ url_for('pcp_lista') }}">Cancelar</a>
         </div>
       </form>
       {% endif %}
     </div>
-  </div>
+  </section>
 </div>
 {% endblock %}

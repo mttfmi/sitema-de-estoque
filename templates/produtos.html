@@ -1,25 +1,50 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}Produtos — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
   <div class="page__header">
     <div>
-      <div class="page__title">Produtos</div>
-      <div class="page__subtitle">{{ produtos|length }} produto(s) cadastrado(s)</div>
+      <div class="page__eyebrow">Estoque</div>
+      <h1 class="page__title">Produtos</h1>
+      <p class="page__subtitle">{{ produtos|length }} produto(s) cadastrado(s)</p>
     </div>
-    <div style="display:flex; gap:8px;">
-      <button type="button" id="btn-escanear-rapido" class="btn-secondary" style="width:auto; padding: 10px 18px;">📷 Escanear e Cadastrar</button>
-      <a href="{{ url_for('produto_novo') }}">
-        <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Novo Produto</button>
-      </a>
+    <div class="actions">
+      <button type="button" id="btn-escanear-rapido" class="btn">{{ icon('scan') }}<span>Escanear e cadastrar</span></button>
+      <a class="btn btn--primary" href="{{ url_for('produto_novo') }}">{{ icon('plus') }}<span>Novo produto</span></a>
     </div>
   </div>
 
-  <div class="panel">
+  <!-- Scanner rápido: aponta a câmera, lê o código de barras e já leva pra tela de
+       cadastro com o código preenchido automaticamente -->
+  <section id="scanner-rapido-wrap" class="panel" style="display:none;">
+    <div class="panel__header"><h2 class="panel__title">{{ icon('scan') }}Escanear código de barras</h2></div>
+    <div class="panel__body panel__body--pad">
+      <div id="scanner-rapido-reader" class="scanner scanner--center">
+        <video id="video-scanner-rapido" autoplay muted playsinline></video>
+        <div class="scanner-guia"></div>
+      </div>
+      <div id="scanner-rapido-status" class="scanner-status">Aponte a câmera para o código de barras do produto...</div>
+      <!-- Reconhecimento genérico de objeto (roda no navegador, não no servidor) —
+           ajuda a confirmar visualmente e sugere um nome inicial ao abrir o cadastro. -->
+      <div id="scanner-rapido-objeto" class="scanner-objeto"></div>
+      <button type="button" id="btn-cancelar-scanner-rapido" class="btn btn--block" style="margin-top:14px;">Cancelar</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    {% if produtos %}
+    <div class="panel__toolbar">
+      <div class="search">
+        {{ icon('search') }}
+        <input type="search" id="filtro-produtos" placeholder="Filtrar por nome ou código…" aria-label="Filtrar produtos" autocomplete="off">
+      </div>
+    </div>
+    {% endif %}
     <div class="panel__body">
       {% if produtos %}
-      <table>
+      <table class="table--cards table--actions-top" id="tabela-produtos">
         <thead>
           <tr><th>Produto</th><th>Código</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
         </thead>
@@ -27,28 +52,34 @@
           {% for p in produtos %}
           {% set qtd = p[5] or 0 %}
           {% set minimo = p[6] or 5 %}
+          {% set nivel = 'danger' if qtd <= minimo else ('warn' if qtd <= minimo * 2 else '') %}
+          {% set pct = ([(qtd / (minimo * 3) * 100), 100]|min)|round|int %}
           <tr>
-            <td>{{ p[2] }}</td>
-            <td class="mono">{{ p[1] or 'S/C' }}</td>
-            <td class="mono">R$ {{ "%.2f"|format(p[4] or 0.0) }}</td>
-            <td class="mono">{{ qtd }} un</td>
-            <td>
+            <td class="td-strong td-title" data-label="Produto">{{ p[2] }}</td>
+            <td class="mono muted" data-label="Código">{{ p[1] or 'S/C' }}</td>
+            <td class="mono" data-label="Preço">R$ {{ (p[4] or 0.0)|brl }}</td>
+            <td data-label="Estoque">
+              <div class="stock-cell">
+                <span class="stock-cell__num">{{ qtd|qtd }} un <span class="muted">/ mín. {{ minimo }}</span></span>
+                <div class="meter{{ ' meter--' ~ nivel if nivel }}" style="--pct: {{ pct }}%" aria-hidden="true"><i></i></div>
+              </div>
+            </td>
+            <td data-label="Status">
               {% if qtd <= minimo %}
                 <span class="tag tag--critico">Crítico</span>
+              {% elif qtd <= minimo * 2 %}
+                <span class="tag tag--atencao">Atenção</span>
               {% else %}
                 <span class="tag tag--ok">OK</span>
               {% endif %}
             </td>
-            <td style="text-align:right; white-space:nowrap;">
-              <a href="{{ url_for('produto_editar', produto_id=p[0]) }}">
-                <button type="button" class="btn-icon" title="Editar">✏️</button>
-              </a>
+            <td class="td-actions" data-label="">
+              <a class="btn btn--icon" href="{{ url_for('produto_editar', produto_id=p[0]) }}" title="Editar" aria-label="Editar {{ p[2] }}">{{ icon('pencil') }}</a>
               {% if current_user.nivel_acesso == 'administrador' %}
               <form method="POST" action="{{ url_for('produto_deletar', produto_id=p[0]) }}"
-                    style="display:inline;"
                     data-confirm="Excluir o produto '{{ p[2] }}'? Essa ação não pode ser desfeita.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
+                <button type="submit" class="btn btn--icon btn--danger" title="Excluir" aria-label="Excluir {{ p[2] }}">{{ icon('trash') }}</button>
               </form>
               {% endif %}
             </td>
@@ -57,31 +88,10 @@
         </tbody>
       </table>
       {% else %}
-      <div class="panel__empty">Nenhum produto cadastrado ainda. Clique em "+ Novo Produto" para começar.</div>
+      <div class="panel__empty">Nenhum produto cadastrado ainda. Clique em “Novo produto” para começar.</div>
       {% endif %}
     </div>
-  </div>
-
-  <!-- Painel do scanner rápido: aponta a câmera, lê o código de barras e já leva
-       pra tela de cadastro com o código preenchido automaticamente -->
-  <div id="scanner-rapido-wrap" class="panel" style="display:none;">
-    <div class="panel__header">📷 Escanear código de barras</div>
-    <div class="panel__body" style="padding: 20px;">
-      <div id="scanner-rapido-reader" style="width:100%; max-width:480px; margin:0 auto; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position:relative; background:#000;">
-        <video id="video-scanner-rapido" autoplay muted playsinline style="width:100%; display:block;"></video>
-        <div class="scanner-guia"></div>
-      </div>
-      <div id="scanner-rapido-status" class="page__subtitle" style="margin: 12px 0 0; text-align:center;">
-        Aponte a câmera para o código de barras do produto...
-      </div>
-      <!-- Reconhecimento genérico de objeto (roda no navegador, não no servidor) —
-           ajuda a confirmar visualmente e sugere um nome inicial ao abrir o cadastro. -->
-      <div id="scanner-rapido-objeto" style="margin: 6px 0 0; text-align:center; font-size:13px; color: var(--azul-hover);"></div>
-      <button type="button" id="btn-cancelar-scanner-rapido" class="btn-secondary" style="width:100%; margin-top:12px;">
-        Cancelar
-      </button>
-    </div>
-  </div>
+  </section>
 </div>
 
 <!-- Polyfill do BarcodeDetector (API nativa do navegador, roda em
@@ -283,5 +293,16 @@
   });
 
   btnCancelarRapido.addEventListener('click', pararScannerRapido);
+
+  // Filtro instantâneo da tabela (nome ou código), sem recarregar a página
+  const filtroProdutos = document.getElementById('filtro-produtos');
+  if (filtroProdutos) {
+    filtroProdutos.addEventListener('input', () => {
+      const termo = filtroProdutos.value.trim().toLowerCase();
+      document.querySelectorAll('#tabela-produtos tbody tr').forEach((linha) => {
+        linha.hidden = termo !== '' && !linha.textContent.toLowerCase().includes(termo);
+      });
+    });
+  }
 </script>
 {% endblock %}

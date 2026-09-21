@@ -1,77 +1,119 @@
-<!DOCTYPE html>
+{% from "_macros.html" import icon, brand_mark %}<!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "_head.html" %}
   <title>Login — Sistema de Estoque</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="login-wrap">
-    <div class="login-card">
-      <div class="login-card__brand">
-        <span class="barcode">|||‖|||</span>
-        <span>ESTOQUE &amp; PDV</span>
+  {% include "_icons.html" %}
+
+  <div class="auth">
+    <!-- Painel de marca (some a maior parte no celular) -->
+    <section class="auth__brand" aria-hidden="false">
+      <div>
+        <div class="brand" style="padding:0;">
+          <span class="brand__mark">{{ brand_mark() }}</span>
+          <span>
+            <span class="brand__name">Estoque &amp; PDV</span>
+            <span class="brand__tag">PCP · Produção</span>
+          </span>
+        </div>
+        <h2 class="auth__headline">Estoque, vendas e produção num só lugar.</h2>
+        <p class="auth__lead">Do código de barras à ordem de produção, sem planilha no meio do caminho.</p>
+        <ul class="auth__features">
+          <li>{{ icon('scan') }}<span>Leitura de código de barras pela câmera</span></li>
+          <li>{{ icon('factory') }}<span>PCP com ficha técnica, ordens e lotes</span></li>
+          <li>{{ icon('trend-down') }}<span>Alerta de ruptura antes de o produto faltar</span></li>
+        </ul>
       </div>
+      <div>
+        <div class="auth__bars" aria-hidden="true"></div>
+        <div class="auth__foot">Planejamento em Foco</div>
+      </div>
+    </section>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
+    <!-- Formulário -->
+    <section class="auth__panel">
+      <div class="auth__card">
+        {% with messages = get_flashed_messages(with_categories=true) %}
           {% for categoria, msg in messages %}
-            <div class="flash flash--{{ categoria }}">{{ msg }}</div>
+          <div class="flash flash--{{ categoria }}" role="{{ 'alert' if categoria == 'erro' else 'status' }}">
+            {{ icon('check-circle' if categoria == 'sucesso' else ('alert-circle' if categoria == 'erro' else 'info')) }}
+            <span class="flash__text">{{ msg }}</span>
+          </div>
           {% endfor %}
-        {% endif %}
-      {% endwith %}
+        {% endwith %}
 
-      {% if primeiro_acesso and setup_bloqueado %}
-        <h1>Primeiro acesso bloqueado</h1>
-        <p class="page__subtitle">
-          Por segurança, criar o primeiro administrador em produção exige a variável de
-          ambiente <b>SETUP_KEY</b> no servidor (Render &rarr; Environment). Defina-a e recarregue esta página.
-        </p>
-      {% elif primeiro_acesso %}
-        <h1>Criar Administrador</h1>
-        <form method="POST">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          {% if exigir_chave %}
-          <div class="field">
-            <label for="chave_setup">Chave de instalação (SETUP_KEY)</label>
-            <input type="password" id="chave_setup" name="chave_setup" required autocomplete="off">
-          </div>
-          {% endif %}
-          <div class="field">
-            <label for="nome">Nome completo</label>
-            <input type="text" id="nome" name="nome" required {{ '' if exigir_chave else 'autofocus' }}>
-          </div>
-          <div class="field">
-            <label for="usuario">Usuário (login)</label>
-            <input type="text" id="usuario" name="usuario" required>
-          </div>
-          <div class="field">
-            <label for="senha">Senha</label>
-            <input type="password" id="senha" name="senha" required>
-          </div>
-          <div class="field">
-            <label for="confirmar_senha">Confirmar senha</label>
-            <input type="password" id="confirmar_senha" name="confirmar_senha" required>
-          </div>
-          <button type="submit" class="btn-primary">Criar Administrador</button>
-        </form>
-      {% else %}
-        <h1>Entrar</h1>
-        <form method="POST">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="field">
-            <label for="usuario">Usuário</label>
-            <input type="text" id="usuario" name="usuario" required autofocus>
-          </div>
-          <div class="field">
-            <label for="senha">Senha</label>
-            <input type="password" id="senha" name="senha" required>
-          </div>
-          <button type="submit" class="btn-primary">Entrar</button>
-        </form>
-      {% endif %}
-    </div>
+        {% if primeiro_acesso and setup_bloqueado %}
+          <h1>Primeiro acesso bloqueado</h1>
+          <p class="lead">
+            Por segurança, criar o primeiro administrador em produção exige a variável de
+            ambiente <b>SETUP_KEY</b> no servidor (Render &rarr; Environment). Defina-a e recarregue esta página.
+          </p>
+        {% elif primeiro_acesso %}
+          <h1>Criar administrador</h1>
+          <p class="lead">Ainda não existe nenhum usuário. Crie a conta que vai administrar o sistema.</p>
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if exigir_chave %}
+            <div class="field">
+              <label for="chave_setup">Chave de instalação (SETUP_KEY)</label>
+              <input type="password" id="chave_setup" name="chave_setup" required autocomplete="off">
+            </div>
+            {% endif %}
+            <div class="field">
+              <label for="nome">Nome completo</label>
+              <input type="text" id="nome" name="nome" required autocomplete="name" {{ '' if exigir_chave else 'autofocus' }}>
+            </div>
+            <div class="field">
+              <label for="usuario">Usuário (login)</label>
+              <input type="text" id="usuario" name="usuario" required autocomplete="username" autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="field field--password">
+              <label for="senha">Senha</label>
+              <input type="password" id="senha" name="senha" required autocomplete="new-password">
+              <button type="button" class="field__toggle" data-toggle-senha aria-label="Mostrar senha">{{ icon('eye') }}</button>
+            </div>
+            <div class="field field--password">
+              <label for="confirmar_senha">Confirmar senha</label>
+              <input type="password" id="confirmar_senha" name="confirmar_senha" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn--primary btn--lg btn--block">Criar administrador</button>
+          </form>
+        {% else %}
+          <h1>Entrar</h1>
+          <p class="lead">Acesse com o seu usuário e senha.</p>
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="field">
+              <label for="usuario">Usuário</label>
+              <input type="text" id="usuario" name="usuario" required autofocus autocomplete="username" autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="field field--password">
+              <label for="senha">Senha</label>
+              <input type="password" id="senha" name="senha" required autocomplete="current-password">
+              <button type="button" class="field__toggle" data-toggle-senha aria-label="Mostrar senha">{{ icon('eye') }}</button>
+            </div>
+            <button type="submit" class="btn btn--primary btn--lg btn--block" style="margin-top:8px;">Entrar {{ icon('arrow-right') }}</button>
+          </form>
+        {% endif %}
+
+        <div class="auth__note">{{ icon('shield') }}<span>Conexão protegida. Após várias tentativas erradas o acesso é bloqueado por alguns minutos.</span></div>
+      </div>
+    </section>
   </div>
+
+  <script nonce="{{ csp_nonce }}">
+    // Mostrar/ocultar senha
+    document.querySelectorAll('[data-toggle-senha]').forEach(function (botao) {
+      botao.addEventListener('click', function () {
+        var campo = botao.parentElement.querySelector('input');
+        var mostrar = campo.type === 'password';
+        campo.type = mostrar ? 'text' : 'password';
+        botao.setAttribute('aria-label', mostrar ? 'Ocultar senha' : 'Mostrar senha');
+        botao.querySelector('use').setAttribute('href', mostrar ? '#i-eye-off' : '#i-eye');
+      });
+    });
+  </script>
 </body>
 </html>

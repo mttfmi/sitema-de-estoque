@@ -1,52 +1,40 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, op_status %}
 {% block title %}PCP (OPs) — Sistema de Estoque{% endblock %}
 
 {% block content %}
 <div class="page">
   <div class="page__header">
     <div>
-      <div class="page__title">PCP — Ordens de Produção</div>
-      <div class="page__subtitle">{{ ops|length }} OP(s){{ ' — filtro: ' + status_filtro if status_filtro }}</div>
+      <div class="page__eyebrow">Produção</div>
+      <h1 class="page__title">Ordens de produção</h1>
+      <p class="page__subtitle">{{ ops|length }} OP(s){{ ' — filtro: ' + status_filtro if status_filtro }}</p>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div class="actions">
       {% if status_filtro %}
-      <a href="{{ url_for('pcp_lista') }}"><button type="button" class="btn-secondary" style="width:auto; padding: 10px 18px;">Limpar filtro</button></a>
+      <a class="btn" href="{{ url_for('pcp_lista') }}">{{ icon('close') }}<span>Limpar filtro</span></a>
       {% endif %}
-      <a href="{{ url_for('pcp_nova') }}">
-        <button type="button" class="btn-primary" style="width:auto; padding: 10px 18px;">+ Nova OP</button>
-      </a>
+      <a class="btn btn--primary" href="{{ url_for('pcp_nova') }}">{{ icon('plus') }}<span>Nova OP</span></a>
     </div>
   </div>
 
-  <div class="panel">
+  <section class="panel">
     <div class="panel__body">
       {% if ops %}
-      <table>
+      <table class="table--cards table--actions-top">
         <thead>
           <tr><th>OP</th><th>Produto</th><th>Qtd</th><th>Criada em</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for op in ops %}
           <tr>
-            <td class="mono">#{{ op[0] }}</td>
-            <td>{{ op[2] }}</td>
-            <td class="mono">{{ op[3] }}</td>
-            <td class="mono">{{ op[4] }}</td>
-            <td>
-              {% if op[6] == 'Concluída' %}
-                <span class="tag tag--ok">Concluída</span>
-              {% elif op[6] == 'Cancelada' %}
-                <span class="tag" style="color:var(--text-muted); background:var(--surface-alt);">Cancelada</span>
-              {% elif op[9] %}
-                <span class="tag tag--critico">{{ op[6] }} · Em risco</span>
-              {% else %}
-                <span class="tag tag--atencao">{{ op[6] }}</span>
-              {% endif %}
-            </td>
-            <td style="text-align:right;">
-              <a href="{{ url_for('pcp_detalhe', op_id=op[0]) }}">
-                <button type="button" class="btn-secondary" style="width:auto; padding: 6px 12px; font-size:13px;">Ver detalhes</button>
-              </a>
+            <td class="mono td-title" data-label="OP">#{{ op[0] }}</td>
+            <td class="td-strong" data-label="Produto">{{ op[2] }}</td>
+            <td class="mono" data-label="Qtd">{{ op[3]|qtd }}</td>
+            <td class="mono muted" data-label="Criada em">{{ op[4] }}</td>
+            <td data-label="Status">{{ op_status(op) }}</td>
+            <td class="td-actions" data-label="">
+              <a class="btn btn--sm" href="{{ url_for('pcp_detalhe', op_id=op[0]) }}"><span>Ver detalhes</span>{{ icon('arrow-right') }}</a>
             </td>
           </tr>
           {% endfor %}
@@ -56,6 +44,6 @@
       <div class="panel__empty">Nenhuma Ordem de Produção encontrada.</div>
       {% endif %}
     </div>
-  </div>
+  </section>
 </div>
 {% endblock %}
