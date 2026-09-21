@@ -76,7 +76,7 @@
               </form>
               {% endif %}
               <form method="POST" action="{{ url_for('usuario_deletar', usuario_id=u_id) }}" style="display:inline;"
-                    onsubmit="return confirm('Excluir o usuário \'{{ nome or login }}\'?');">
+                    data-confirm="Excluir o usuário '{{ nome or login }}'?">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
               </form>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Minha senha — Sistema de Estoque{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 520px;">
+  <div class="page__title">🔑 Minha senha</div>
+  <div class="page__subtitle">
+    Ao trocar a senha, todas as outras sessões abertas com a sua conta (outros
+    aparelhos, navegadores) são encerradas.
+  </div>
+
+  <div class="panel">
+    <div class="panel__body" style="padding: 24px;">
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field">
+          <label for="senha_atual">Senha atual</label>
+          <input type="password" id="senha_atual" name="senha_atual" required autocomplete="current-password" autofocus>
+        </div>
+        <div class="field">
+          <label for="nova_senha">Nova senha (mínimo 8 caracteres)</label>
+          <input type="password" id="nova_senha" name="nova_senha" required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="confirmar_senha">Confirmar nova senha</label>
+          <input type="password" id="confirmar_senha" name="confirmar_senha" required minlength="8" autocomplete="new-password">
+        </div>
+
+        <button type="submit" class="btn-primary">Alterar senha</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -30,12 +30,14 @@
               <a href="{{ url_for('ficha_tecnica_editar', ficha_id=f[0]) }}">
                 <button type="button" class="btn-icon" title="Editar">✏️</button>
               </a>
+              {% if current_user.nivel_acesso == 'administrador' %}
               <form method="POST" action="{{ url_for('ficha_tecnica_deletar', ficha_id=f[0]) }}"
                     style="display:inline;"
-                    onsubmit="return confirm('Excluir a ficha técnica de \'{{ f[2] }}\'?');">
+                    data-confirm="Excluir a ficha técnica de '{{ f[2] }}'?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-icon" title="Excluir">🗑️</button>
               </form>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

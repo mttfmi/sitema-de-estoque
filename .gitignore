@@ -1,17 +1,31 @@
 # Ambiente virtual
 venv/
 env/
+.venv/
 
 # Variáveis de ambiente e segredos — NUNCA subir isso pro GitHub
+# (o modelo sem valores reais, .env.example, pode ser versionado)
 .env
+.env.*
+!.env.example
+
+# Chaves, certificados e backups do banco (podem conter dados e senhas)
+*.pem
+*.key
+*.p12
+*.sql
+*.dump
+*.bak
+backup*/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 
-# VS Code
+# Editores / ferramentas
 .vscode/
+.claude/
 
 # Arquivos temporários do sistema
 .DS_Store

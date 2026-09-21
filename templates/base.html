@@ -32,8 +32,11 @@
     </nav>
     <div class="topbar__user">
       <span class="badge">{{ '👑 ADMIN' if current_user.nivel_acesso == 'administrador' else '👤 OPERADOR' }}</span>
-      <span>{{ current_user.nome_completo }}</span>
-      <a href="{{ url_for('logout') }}"><button class="btn-logout">Sair</button></a>
+      <a href="{{ url_for('conta_senha') }}" title="Trocar minha senha">{{ current_user.nome_completo }}</a>
+      <form method="POST" action="{{ url_for('logout') }}" style="display:inline; margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-logout">Sair</button>
+      </form>
     </div>
   </header>
   {% endif %}
@@ -51,5 +54,16 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Confirmação de ações destrutivas: o texto vem num atributo data-confirm
+       (que o Jinja escapa corretamente) e NUNCA é montado dentro de código
+       JavaScript. Antes era onsubmit="confirm('... {{ nome }} ...')", e um
+       nome de produto contendo aspas permitia injetar código (XSS). -->
+  <script nonce="{{ csp_nonce }}">
+    document.addEventListener('submit', function (ev) {
+      var mensagem = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-confirm');
+      if (mensagem && !window.confirm(mensagem)) ev.preventDefault();
+    });
+  </script>
 </body>
 </html>

@@ -126,6 +126,44 @@ def init_db():
     cursor.close()
     conn.close()
 
+
+def proteger_tabelas_rls():
+    """Liga Row Level Security em todas as tabelas do schema public.
+
+    O Supabase expõe o schema public por uma API REST (PostgREST) acessível
+    com a chave "anon" do projeto. Tabelas criadas por SQL puro nascem SEM
+    RLS — ou seja, quem tiver essa chave poderia ler e alterar produtos,
+    vendas e até o hash das senhas dos usuários, sem passar pelo login do
+    sistema. Com RLS ligado e nenhuma política criada, essa API fica sem
+    acesso a nada. O app não é afetado: ele conecta direto no Postgres com
+    o usuário dono das tabelas (postgres), que ignora o RLS.
+
+    Idempotente e à prova de falha: se algo der errado (ex: permissão), só
+    avisa no log — nunca impede o app de subir."""
+    from psycopg2 import sql
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity"
+        )
+        tabelas = [linha[0] for linha in cursor.fetchall()]
+        for tabela in tabelas:
+            try:
+                cursor.execute(
+                    sql.SQL("ALTER TABLE public.{} ENABLE ROW LEVEL SECURITY").format(sql.Identifier(tabela))
+                )
+                conn.commit()
+                print(f"🔒 RLS ativado na tabela public.{tabela}")
+            except Exception as e:
+                conn.rollback()
+                print(f"Aviso: não foi possível ativar RLS em public.{tabela} ({e})")
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Aviso: verificação de RLS ignorada ({e})")
+
 # ---------------------------------------------------------------------
 # LOGS E HISTÓRICO
 # ---------------------------------------------------------------------

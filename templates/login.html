@@ -22,13 +22,25 @@
         {% endif %}
       {% endwith %}
 
-      {% if primeiro_acesso %}
+      {% if primeiro_acesso and setup_bloqueado %}
+        <h1>Primeiro acesso bloqueado</h1>
+        <p class="page__subtitle">
+          Por segurança, criar o primeiro administrador em produção exige a variável de
+          ambiente <b>SETUP_KEY</b> no servidor (Render &rarr; Environment). Defina-a e recarregue esta página.
+        </p>
+      {% elif primeiro_acesso %}
         <h1>Criar Administrador</h1>
         <form method="POST">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if exigir_chave %}
+          <div class="field">
+            <label for="chave_setup">Chave de instalação (SETUP_KEY)</label>
+            <input type="password" id="chave_setup" name="chave_setup" required autocomplete="off">
+          </div>
+          {% endif %}
           <div class="field">
             <label for="nome">Nome completo</label>
-            <input type="text" id="nome" name="nome" required autofocus>
+            <input type="text" id="nome" name="nome" required {{ '' if exigir_chave else 'autofocus' }}>
           </div>
           <div class="field">
             <label for="usuario">Usuário (login)</label>

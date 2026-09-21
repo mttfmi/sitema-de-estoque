@@ -4,11 +4,21 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from core.database import get_todos_produtos, get_produtos_baixo_estoque
 
-def exportar_excel(caminho):
+def exportar_excel(destino):
+    """'destino' pode ser um caminho ou um arquivo em memória (BytesIO)."""
     produtos = get_todos_produtos()
     cols = ["ID", "Código", "Nome", "Descrição", "Preço (R$)", "Quantidade", "Estoque Mínimo"]
     df = pd.DataFrame(produtos, columns=cols)
-    df.to_excel(caminho, index=False)
+    with pd.ExcelWriter(destino, engine="openpyxl") as escritor:
+        df.to_excel(escritor, index=False)
+        # O openpyxl converte qualquer texto que comece com "=" em FÓRMULA.
+        # Um produto cadastrado com nome "=HYPERLINK(...)" viraria código
+        # executável no Excel de quem abrisse o relatório (injeção de
+        # fórmula). Forçar o tipo texto mantém o conteúdo, sem executá-lo.
+        for linha in escritor.book.active.iter_rows():
+            for celula in linha:
+                if celula.data_type == "f":
+                    celula.data_type = "s"
 
 def exportar_pdf(caminho):
     produtos = get_todos_produtos()

@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime
 
 from core.database import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def init_ficha_tecnica_db():
@@ -153,11 +156,14 @@ def criar_ficha_tecnica(produto_id, itens):
             ''', (ficha_id, insumo_id, quantidade, unidade))
 
         conn.commit()
-    except Exception as e:
+    except Exception:
+        # O detalhe técnico (nomes de tabelas/constraints do Postgres) vai só
+        # pro log do servidor — nunca pra tela do usuário.
+        logger.exception("Erro ao salvar ficha técnica do produto %s", produto_id)
         conn.rollback()
         cursor.close()
         conn.close()
-        return False, f"Erro ao salvar ficha técnica: {e}"
+        return False, "Não foi possível salvar a ficha técnica. Confira os insumos escolhidos e tente novamente."
 
     cursor.close()
     conn.close()
@@ -179,11 +185,12 @@ def atualizar_ficha_tecnica(ficha_id, itens):
                 VALUES (%s, %s, %s, %s)
             ''', (ficha_id, insumo_id, quantidade, unidade))
         conn.commit()
-    except Exception as e:
+    except Exception:
+        logger.exception("Erro ao atualizar a ficha técnica %s", ficha_id)
         conn.rollback()
         cursor.close()
         conn.close()
-        return False, f"Erro ao atualizar ficha técnica: {e}"
+        return False, "Não foi possível atualizar a ficha técnica. Confira os insumos escolhidos e tente novamente."
 
     cursor.close()
     conn.close()

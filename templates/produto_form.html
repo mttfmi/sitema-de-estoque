@@ -88,9 +88,11 @@
      WebAssembly) — no Chrome Android o navegador já tem essa API, mas no
      Safari/iPhone e em outros navegadores ela não existe. Esse polyfill
      roda 100% no navegador do usuário (nenhum custo no servidor/Render). -->
-<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
-<script>
-  const btnEscanear = document.getElementById('btn-escanear');
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/polyfill.min.js"
+        integrity="sha384-obwtJheEGEis3we4w50z1bL27sDMqH7eKfLMWd2lsLm9Mp2q4zfUaigen8ZLalnN"
+        crossorigin="anonymous" nonce="{{ csp_nonce }}"></script>
+<script nonce="{{ csp_nonce }}">
+  const btnEscanear =document.getElementById('btn-escanear');
   const btnCancelar = document.getElementById('btn-cancelar-scanner');
   const scannerWrap = document.getElementById('scanner-wrap');
   const scannerStatus = document.getElementById('scanner-status');
@@ -137,11 +139,23 @@
     if (carregandoBibliotecas) return carregandoBibliotecas;
     carregandoBibliotecas = new Promise((resolve, reject) => {
       if (window.tf && window.cocoSsd) return resolve();
+      // O tf.min.js atribui a uma global não declarada (regeneratorRuntime) e,
+      // em modo estrito, cai num fallback com Function() — que a nossa CSP
+      // bloqueia (e liberar 'unsafe-eval' enfraqueceria a proteção). Declarar
+      // a global antes faz a atribuição funcionar e o fallback nunca disparar.
+      if (!('regeneratorRuntime' in window)) window.regeneratorRuntime = undefined;
       const scriptTf = document.createElement('script');
+      // Versão exata + hash SRI: se o arquivo no CDN for alterado (ex: pacote
+      // comprometido), o navegador recusa executar — este script rodaria com
+      // a sessão logada do usuário.
       scriptTf.src = 'https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
+      scriptTf.integrity = 'sha384-xc4sZTUOM2obsQR75Be0zGbt7Gb6mOVFJN4yBm30Xn0YQLDWIY+yrtFmLmIank6w';
+      scriptTf.crossOrigin = 'anonymous';
       scriptTf.onload = () => {
         const scriptCoco = document.createElement('script');
         scriptCoco.src = 'https://unpkg.com/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
+        scriptCoco.integrity = 'sha384-7qLdgfEQyO9ZQi9ArRHigK+IBto4XPk468jAqc+fnsXaZIcMAhQeLwzggRK7aESl';
+        scriptCoco.crossOrigin = 'anonymous';
         scriptCoco.onload = resolve;
         scriptCoco.onerror = reject;
         document.head.appendChild(scriptCoco);
@@ -167,18 +181,24 @@
           if (previsoes.length > 0) {
             const melhor = previsoes.reduce((a, b) => (a.score > b.score ? a : b));
             const nomeTraduzido = traduzirClasseCoco(melhor.class);
-            scannerObjeto.innerHTML =
-              `🔎 Objeto no quadro: <strong>${nomeTraduzido}</strong> (${Math.round(melhor.score * 100)}%) ` +
-              `— <a href="#" id="link-usar-sugestao" style="color: var(--azul-hover);">usar como nome</a>`;
-            const link = document.getElementById('link-usar-sugestao');
-            if (link) {
-              link.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                if (!inputNome.value.trim()) {
-                  inputNome.value = nomeTraduzido.charAt(0).toUpperCase() + nomeTraduzido.slice(1);
-                }
-              });
-            }
+            // DOM montado com textContent (nunca innerHTML): o texto vem de um
+            // modelo externo e não pode ser interpretado como HTML.
+            const forte = document.createElement('strong');
+            forte.textContent = nomeTraduzido;
+            const link = document.createElement('a');
+            link.href = '#';
+            link.style.color = 'var(--azul-hover)';
+            link.textContent = 'usar como nome';
+            link.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              if (!inputNome.value.trim()) {
+                inputNome.value = nomeTraduzido.charAt(0).toUpperCase() + nomeTraduzido.slice(1);
+              }
+            });
+            scannerObjeto.replaceChildren(
+              '🔎 Objeto no quadro: ', forte,
+              ` (${Math.round(melhor.score * 100)}%) — `, link
+            );
           } else {
             scannerObjeto.textContent = '';
           }

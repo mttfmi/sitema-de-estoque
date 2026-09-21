@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime
 
 from core.database import get_connection, registrar_log
 from core.ficha_tecnica import get_ficha_tecnica_por_produto
 from core.lotes import gerar_codigo_lote
 from core.notifier import notificar_op_risco, notificar_op_concluida
+
+logger = logging.getLogger(__name__)
 
 STATUS_VALIDOS = ["Planejada", "Em Andamento", "Concluída", "Cancelada"]
 
@@ -204,13 +207,20 @@ def iniciar_op(op_id):
 
     conn = get_connection()
     cursor = conn.cursor()
+    # "AND status = 'Planejada'" torna a checagem atômica: duas requisições
+    # simultâneas (ou uma OP concluída/cancelada no meio do caminho) não
+    # conseguem mais sobrescrever o status uma da outra.
     cursor.execute(
-        "UPDATE ordens_producao SET status = 'Em Andamento', em_risco = %s WHERE id = %s",
+        "UPDATE ordens_producao SET status = 'Em Andamento', em_risco = %s "
+        "WHERE id = %s AND status = 'Planejada'",
         (1 if em_risco else 0, op_id)
     )
+    alterou = cursor.rowcount > 0
     conn.commit()
     cursor.close()
     conn.close()
+    if not alterou:
+        return False, "Só é possível iniciar uma OP que esteja Planejada."
     return True, "OP em andamento."
 
 
@@ -223,10 +233,18 @@ def cancelar_op(op_id):
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE ordens_producao SET status = 'Cancelada' WHERE id = %s", (op_id,))
+    # "AND status <> 'Concluída'": sem isso, um cancelamento simultâneo a uma
+    # conclusão podia marcar como Cancelada uma OP que já deu baixa no estoque.
+    cursor.execute(
+        "UPDATE ordens_producao SET status = 'Cancelada' WHERE id = %s AND status <> 'Concluída'",
+        (op_id,)
+    )
+    alterou = cursor.rowcount > 0
     conn.commit()
     cursor.close()
     conn.close()
+    if not alterou:
+        return False, "Uma OP concluída não pode ser cancelada."
     return True, "OP cancelada."
 
 
@@ -309,11 +327,12 @@ def concluir_op(op_id):
         produto_nome = cursor.fetchone()[0]
 
         conn.commit()
-    except Exception as e:
+    except Exception:
+        logger.exception("Erro ao concluir a OP %s", op_id)
         conn.rollback()
         cursor.close()
         conn.close()
-        return False, f"Erro ao concluir a OP: {e}", None
+        return False, "Não foi possível concluir a OP. Nada foi alterado; tente novamente.", None
 
     cursor.close()
     conn.close()
@@ -372,11 +391,6 @@ def listar_insumos_em_risco():
         if v["disponivel"] < v["necessario"]
     ]
     return em_risco
-
-
-def contar_insumos_em_risco():
-    return len(listar_insumos_em_risco())
-
 
 
 def contar_insumos_em_risco():
