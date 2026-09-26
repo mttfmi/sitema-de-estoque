@@ -33,7 +33,7 @@ from core.auth import (
 from core.ai_chat import responder_chat_ia
 from core.ai_search import buscar_produtos_ia
 from core.exporter import exportar_excel, exportar_pdf, exportar_ordem_compra_pdf
-from core.validators import parse_float, parse_int, validar_texto
+from core.validators import parse_float, parse_int, validar_texto, formatar_quantidade
 from core.ficha_tecnica import (
     init_ficha_tecnica_db, listar_fichas_tecnicas, get_ficha_tecnica,
     get_ficha_tecnica_por_produto, criar_ficha_tecnica, atualizar_ficha_tecnica,
@@ -116,14 +116,7 @@ def _formatar_brl(valor):
 
 @app.template_filter("qtd")
 def _formatar_quantidade(valor):
-    """12.0 -> '12'; 2.5 -> '2,5' (a coluna de estoque é REAL, então vinha '12.0')."""
-    try:
-        numero = float(valor or 0)
-    except (TypeError, ValueError):
-        return "0"
-    if numero == int(numero):
-        return str(int(numero))
-    return f"{numero:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+    return formatar_quantidade(valor)
 
 
 _RE_NEGRITO = re.compile(r"\*\*(.+?)\*\*")

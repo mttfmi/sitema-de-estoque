@@ -9,6 +9,7 @@ from core.database import (
     get_connection,
 )
 from core.ai_search import buscar_produtos_ia
+from core.validators import formatar_quantidade
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def responder_chat_ia(mensagem: str) -> str:
 
             res = f"⚠️ **Atenção! {len(baixos)} produto(s) precisam de reabastecimento:**\n\n"
             for p in baixos:
-                res += f"• **{p[2]}** (Cód: `{p[1] or 'S/C'}`) — Restam: **{p[5] or 0} unidades** (Mínimo: {p[6] or 5})\n"
+                res += f"• **{p[2]}** (Cód: `{p[1] or 'S/C'}`) — Restam: **{formatar_quantidade(p[5])} unidades** (Mínimo: {p[6] or 5})\n"
             return res.strip()
 
         # ------------------------------------------------------------------
@@ -92,7 +93,7 @@ def responder_chat_ia(mensagem: str) -> str:
                 qtd = p[5] or 0
                 est_min = p[6] or 5
                 alerta = " ⚠️ [ESTOQUE BAIXO]" if qtd <= est_min else ""
-                res += f"• **{nome}** (Cód: `{cod}`) — R$ {preco:.2f} | Est: **{qtd} un**{alerta}\n"
+                res += f"• **{nome}** (Cód: `{cod}`) — R$ {preco:.2f} | Est: **{formatar_quantidade(qtd)} un**{alerta}\n"
             return res.strip()
 
         # ------------------------------------------------------------------
@@ -116,12 +117,12 @@ def responder_chat_ia(mensagem: str) -> str:
         termos_maior_estoque = ["produto com mais estoque", "maior estoque", "produto com maior quantidade"]
         if any(term in msg for term in termos_maior_estoque):
             p = max(produtos, key=lambda x: x[5] or 0)
-            return f"🤖 Assistente: O produto com mais unidades em estoque é **{p[2]}**, com **{p[5] or 0} unidades**."
+            return f"🤖 Assistente: O produto com mais unidades em estoque é **{p[2]}**, com **{formatar_quantidade(p[5])} unidades**."
 
         termos_menor_estoque = ["produto com menos estoque", "menor estoque", "produto com menor quantidade"]
         if any(term in msg for term in termos_menor_estoque):
             p = min(produtos, key=lambda x: x[5] if x[5] is not None else float('inf'))
-            return f"🤖 Assistente: O produto com menos unidades em estoque é **{p[2]}**, com **{p[5] or 0} unidades**."
+            return f"🤖 Assistente: O produto com menos unidades em estoque é **{p[2]}**, com **{formatar_quantidade(p[5])} unidades**."
 
         # ------------------------------------------------------------------
         # 5. VALOR TOTAL DO ESTOQUE (checar antes do termo genérico "total")
@@ -154,7 +155,7 @@ def responder_chat_ia(mensagem: str) -> str:
         if any(term in msg for term in termos_quantidade):
             total_itens = sum(p[5] or 0 for p in produtos)
             return (f"🤖 Assistente: Existem {len(produtos)} tipos de produtos cadastrados, "
-                    f"totalizando **{total_itens} unidades** físicas no estoque.")
+                    f"totalizando **{formatar_quantidade(total_itens)} unidades** físicas no estoque.")
 
         # ------------------------------------------------------------------
         # 8. HISTÓRICO / ÚLTIMAS MOVIMENTAÇÕES
@@ -171,7 +172,7 @@ def responder_chat_ia(mensagem: str) -> str:
             res = "📜 **Últimas 5 movimentações:**\n\n"
             for log in logs:
                 _, data_hora, nome_produto, tipo, qtd = log
-                res += f"• {data_hora} — {tipo}: **{nome_produto}** ({qtd} un)\n"
+                res += f"• {data_hora} — {tipo}: **{nome_produto}** ({formatar_quantidade(qtd)} un)\n"
             return res.strip()
 
         # ------------------------------------------------------------------
@@ -232,7 +233,7 @@ def responder_chat_ia(mensagem: str) -> str:
 
             res = "🔮 **Previsão de Ruptura de Estoque (próximos a esgotar):**\n\n"
             for a in criticos:
-                res += f"• {a['status']} **{a['nome']}** — {a['qtd_atual']} un restantes, esgota em ~**{a['dias_restantes']} dias**\n"
+                res += f"• {a['status']} **{a['nome']}** — {formatar_quantidade(a['qtd_atual'])} un restantes, esgota em ~**{a['dias_restantes']} dias**\n"
             return res.strip()
 
         # ------------------------------------------------------------------
@@ -251,7 +252,7 @@ def responder_chat_ia(mensagem: str) -> str:
 
             res = "🐌 **Produtos sem vendas nos últimos 30 dias:**\n\n"
             for a in parados:
-                res += f"• **{a['nome']}** — {a['qtd_atual']} un em estoque, parado\n"
+                res += f"• **{a['nome']}** — {formatar_quantidade(a['qtd_atual'])} un em estoque, parado\n"
             return res.strip()
 
         # ------------------------------------------------------------------
@@ -265,7 +266,7 @@ def responder_chat_ia(mensagem: str) -> str:
                 preco = p[4] if p[4] is not None else 0.0
                 qtd = p[5] or 0
                 res += f"📦 **{p[2]}** (Cód: `{p[1]}`)\n"
-                res += f"   💰 R$ {preco:.2f} | 📊 Estoque: {qtd} un | Relevância: {r['confianca']}%\n\n"
+                res += f"   💰 R$ {preco:.2f} | 📊 Estoque: {formatar_quantidade(qtd)} un | Relevância: {r['confianca']}%\n\n"
             return res.strip()
 
         # ------------------------------------------------------------------

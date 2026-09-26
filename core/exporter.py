@@ -3,6 +3,7 @@ import pandas as pd
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from core.database import get_todos_produtos, get_produtos_baixo_estoque
+from core.validators import formatar_quantidade
 
 def exportar_excel(destino):
     """'destino' pode ser um caminho ou um arquivo em memória (BytesIO)."""
@@ -43,7 +44,7 @@ def exportar_pdf(caminho):
         preco = p[4] or 0.0
         qtd = p[5] or 0
         est_min = p[6] or 5
-        linha = f"#{p[0]} | {p[1] or 'N/A'} | {p[2]} | R$ {preco:.2f} | {qtd} un | Mín: {est_min}"
+        linha = f"#{p[0]} | {p[1] or 'N/A'} | {p[2]} | R$ {preco:.2f} | {formatar_quantidade(qtd)} un | Mín: {est_min}"
         c.drawString(50, y, linha)
         y -= 20
     
@@ -76,7 +77,7 @@ def exportar_ordem_compra_pdf(caminho):
                 y = 750
             p_id, nome, qtd, est_min = p[0], p[2], p[5] or 0, p[6] or 5
             sugestao = max(10, (est_min * 2) - qtd)
-            linha = f"#{p_id} | {nome} | Atual: {qtd} un | Mín: {est_min} un | COMPRAR: +{sugestao} un"
+            linha = f"#{p_id} | {nome} | Atual: {formatar_quantidade(qtd)} un | Mín: {est_min} un | COMPRAR: +{formatar_quantidade(sugestao)} un"
             c.drawString(50, y, linha)
             y -= 20
 
@@ -105,7 +106,7 @@ def exportar_comprovante_venda_pdf(caminho, venda_id, data_hora, itens, total, p
         if y < 50:
             c.showPage()
             y = 750
-        linha = f"{item['nome']} | {item['qtd']}x | R$ {item['preco']:.2f} | R$ {item['subtotal']:.2f}"
+        linha = f"{item['nome']} | {formatar_quantidade(item['qtd'])}x | R$ {item['preco']:.2f} | R$ {item['subtotal']:.2f}"
         c.drawString(50, y, linha)
         y -= 18
 

@@ -48,6 +48,20 @@ def parse_int(valor, campo="Valor", minimo=None, obrigatorio=False, maximo=MAXIM
     return int(v), None
 
 
+def formatar_quantidade(valor):
+    """12.0 -> '12'; 2.5 -> '2,5'. A coluna de estoque é REAL no banco, então
+    sem isso as quantidades inteiras apareciam como '12.0' para o usuário."""
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        return "0"
+    if math.isnan(numero) or math.isinf(numero):
+        return "0"
+    if numero == int(numero):
+        return str(int(numero))
+    return f"{numero:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
 def validar_texto(valor, campo, max_len, obrigatorio=False):
     """Limpa e limita o tamanho de um campo de texto.
     Retorna (texto, mensagem_erro). Sem isso, um único campo poderia guardar

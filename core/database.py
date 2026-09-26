@@ -3,6 +3,7 @@ import os
 import shutil
 
 import psycopg2
+from core.validators import formatar_quantidade
 
 # Importação direta e garantida do Notificador do Telegram
 try:
@@ -360,7 +361,7 @@ def registrar_venda(itens, forma_pagamento):
         msg += f"💳 Forma: {forma_pagamento}\n\n"
         msg += "Itens:\n"
         for item in itens:
-            msg += f"• {item['nome']} (x{item['qtd']})\n"
+            msg += f"• {item['nome']} (x{formatar_quantidade(item['qtd'])})\n"
 
         enviar_alerta_telegram(msg)
 
@@ -369,7 +370,7 @@ def registrar_venda(itens, forma_pagamento):
         if produtos_criticos:
             alert_msg = "⚠️ ALERTA DE ESTOQUE CRÍTICO!\nOs seguintes itens precisam de reposição urgente:\n"
             for pc in produtos_criticos:
-                alert_msg += f"• {pc[2]}: Restam apenas {pc[5]} un\n"
+                alert_msg += f"• {pc[2]}: Restam apenas {formatar_quantidade(pc[5])} un\n"
             enviar_alerta_telegram(alert_msg)
     except Exception as e:
         print(f"Aviso: Não foi possível enviar notificação no Telegram ({e})")

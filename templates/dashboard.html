@@ -86,7 +86,7 @@
             <tr>
               <td class="td-strong td-title" data-label="Produto">{{ p[2] }}</td>
               <td class="mono muted" data-label="Código">{{ p[1] or 'S/C' }}</td>
-              <td data-label="Restam"><span class="tag tag--critico">{{ p[5] or 0 }} un</span></td>
+              <td data-label="Restam"><span class="tag tag--critico">{{ p[5]|qtd }} un</span></td>
               <td class="mono" data-label="Mínimo">{{ p[6] or 5 }}</td>
             </tr>
             {% endfor %}
@@ -111,7 +111,7 @@
           <li class="list__item">
             <div>
               <div class="list__title">{{ a.nome }}</div>
-              <div class="list__meta">{{ a.qtd_atual }} un em estoque · média {{ a.media_diaria|string|replace('.', ',') }}/dia</div>
+              <div class="list__meta">{{ a.qtd_atual|qtd }} un em estoque · média {{ a.media_diaria|string|replace('.', ',') }}/dia</div>
             </div>
             {% if a.dias_restantes <= 5 %}
               <span class="tag tag--critico">~{{ a.dias_restantes }} dias</span>
